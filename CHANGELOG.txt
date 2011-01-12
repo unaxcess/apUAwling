@@ -1,0 +1,50 @@
+Version 0.5c (12/01/2011)
+------------------------
+
+- Remove /message/mark and /message/unmark, added /message/read and /message/unread
+
+Version 0.5b (11/01/2011)
+------------------------
+
+- Added /message/mark and /message/unmark
+- Brought GET /message in line with spec
+- Fixed session lookups
+
+Version 0.5a (07/01/2011)
+------------------------
+
+- Added /user to get your own details
+
+Version 0.5 (03/12/2010)
+------------------------
+
+- Added /users/online
+
+Version 0.4a (02/12/2010)
+------------------------
+
+- Better formatting if you're using a browser
+
+Version 0.4 (30/11/2010)
+------------------------
+
+- Implemented full support on /folder, /system
+- Made field names and structures consistent with spec.md
+
+Version 0.3 (29/11/2010)
+------------------------
+
+- Implemented /folder, unread filter, POST /folder, POST /message
+
+Version 0.2 (27/11/2010)
+------------------------
+
+- Add EDF provider 
+- Implemented /folders and /users
+- Added some JSON and EDF test cases off the back of that
+
+Version 0.1 (25/11/2010)
+------------------------
+
+- First crack, just get the HTTP bits working
+- Add session helpers

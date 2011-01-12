@@ -1,0 +1,32 @@
+<project name="apUAwling" default="upload">
+
+	<property name="dist" value="../dist"/>
+	
+	<target name="jar">
+		<mkdir dir="${dist}"/>
+
+		<zip destfile="${dist}/apUAwling-src.zip" basedir="../apUAwling/src"/>
+
+		<jar destfile="${dist}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf"/>
+		<jar destfile="${dist}/apUAwling.jar" basedir="bin"/>
+
+		<propertyfile file="build.properties">
+		  <entry key="buildTime" type="date" value="now" pattern="HH:mm, dd MMM yyyy"/>
+		  <entry key="buildNum" type="int" default="0" operation="+"/>
+		</propertyfile>
+		<property file="build.properties"/>
+		
+		<echo message="Will add properties file with build time=${buildTime}, build number=${buildNum}"/>
+
+		<jar destfile="${dist}/apUAwling.jar" update="true" basedir="." includes="build.properties *.txt"/>
+	</target>
+	
+	<target name="upload" depends="jar">
+		<scp todir="${remoteUrl}" trust="true">
+			<fileset dir="${dist}">
+				<include name="*.jar"/>
+				<include name="*.zip"/>
+			</fileset>
+		</scp>
+	</target>
+</project>
