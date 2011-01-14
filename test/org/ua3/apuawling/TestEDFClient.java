@@ -3,7 +3,7 @@ package org.ua3.apuawling;
 import org.ua2.clientlib.UA;
 import org.ua2.clientlib.UASession;
 
-public class TestClient {
+public class TestEDFClient {
 	public static void main(String[] args) {
 		try {
 			UA ua = new UA();

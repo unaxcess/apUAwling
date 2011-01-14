@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 import org.ua2.clientlib.exception.NoConnectionError;
+import org.ua3.apuawling.edf.EDFClient;
 import org.ua3.apuawling.edf.EDFProvider;
 
 public class Session {
@@ -23,7 +24,7 @@ public class Session {
 
 	private final Map<String, IProvider> authMap = new ConcurrentHashMap<String, IProvider>();
 	private final Map<String, IProvider> sessionMap = new ConcurrentHashMap<String, IProvider>();
-	private static IProvider defaultProvider = null;
+	private static EDFClient edfCachingClient = null;
 
 	private final int TIMEOUT_MINUTES = 10;
 	
@@ -31,8 +32,25 @@ public class Session {
 	
 	public static final Session INSTANCE = new Session();
 	
-	public Session() {
-		logger.debug("Creating default EDF provider");
+	private Session() {
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				while(true) {
+					try {
+						long timestamp = System.currentTimeMillis() - TIMEOUT_MINUTES * 60 * 1000;
+						checkMap(authMap, timestamp);
+						checkMap(sessionMap, timestamp);
+						
+						// Sleep for half the timeout
+						Thread.sleep(30000 * TIMEOUT_MINUTES);
+					} catch(Exception e) {
+						logger.error("Cannot check sessions", e);
+					}
+				}
+			}
+			
+		}).start();
 	}
 	
 	private void checkMap(Map<String, IProvider> providers, long timestamp) {
@@ -59,27 +77,6 @@ public class Session {
 		}
 	}
 	
-	{
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				while(true) {
-					try {
-						long timestamp = System.currentTimeMillis() - TIMEOUT_MINUTES * 60 * 1000;
-						checkMap(authMap, timestamp);
-						checkMap(sessionMap, timestamp);
-						
-						// Sleep for half the timeout
-						Thread.sleep(30000 * TIMEOUT_MINUTES);
-					} catch(Exception e) {
-						logger.error("Cannot check sessions", e);
-					}
-				}
-			}
-			
-		}).start();
-	}
-
 	public void setEDFMode(String host, int port, String username, String password) {
 		mode = Mode.EDF;
 
@@ -88,7 +85,10 @@ public class Session {
 		edfUsername = username;
 		edfPassword = password;
 		
-		defaultProvider = new EDFProvider(edfHost, edfPort, edfUsername, edfPassword, null, Server.CLIENT + " v" + Server.VERSION); 
+		logger.debug("Creating default EDF provider");
+		edfCachingClient = new EDFClient(edfHost, edfPort, edfUsername, edfPassword, null, Server.CLIENT + " v" + Server.VERSION) {
+			
+		};
 	}
 	
 	public String getMapKey(String username, InetAddress address, String client) {
@@ -145,10 +145,6 @@ public class Session {
 		IProvider provider = sessionMap.get(sessionId);
 		logger.trace("Provider for " + sessionId + " is " + provider);
 		return provider;
-	}
-
-	public static IProvider getDefaultProvider() throws ProviderException {
-		return defaultProvider;
 	}
 
 	public void remove(String sessionId) {

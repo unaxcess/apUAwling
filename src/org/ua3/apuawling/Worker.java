@@ -27,7 +27,6 @@ import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.ua3.apuawling.IProvider.Command;
 
 public class Worker {
 	private InetAddress address;
@@ -46,16 +45,6 @@ public class Worker {
 		this.address = address;
 		this.reader = new BufferedReader(new InputStreamReader(input));
 		this.stream = new PrintStream(output);
-	}
-
-	private Command getCommand(IProvider provider, String commandStr) throws ProviderException {
-		for(Command command : provider.getCommands()) {
-			if(command.name().toLowerCase().equals(commandStr)) {
-				return command;
-			}
-		}
-
-		return null;
 	}
 
 	private void appendFile(String filename, boolean pre, StringBuilder sb) {
@@ -117,13 +106,13 @@ public class Worker {
 
 		sb.append("URLs available:<br>\n");
 		sb.append("<ul>\n");
-		try {
+		/* try {
 			for(Command command : provider.getCommands()) {
 				sb.append("<li>/" + command.name().toLowerCase() + "/</li>\n");
 			}
 		} catch(ProviderException e) {
 			logger.error("Could not get commands", e);
-		}
+		} */
 		sb.append("</ul>\n");
 
 		appendFile("README.txt", false, sb);
@@ -173,9 +162,6 @@ public class Worker {
 			sessionId = Session.INSTANCE.getSessionId(sessionId, username, password, address, userAgent);
 
 			provider = Session.INSTANCE.getProvider(sessionId);
-			if(provider == null) {
-				provider = Session.getDefaultProvider();
-			}
 		}
 
 		boolean isBrowser = false;
@@ -186,51 +172,27 @@ public class Worker {
 		String[] fields = request.split(" ");
 		if(fields.length == 3) {
 			String method = fields[0];
-			String url = fields[1];
+			String path = fields[1];
 
-			if(url.equals("/")) {
+			if(path.equals("/")) {
 				sendHelp(sessionId, provider);
-			} else {
+			} else if(provider != null) {
 				// Strip trailing slashes
-				while(url.endsWith("/")) {
-					url = url.substring(0, url.length() - 1);
+				while(path.endsWith("/")) {
+					path = path.substring(0, path.length() - 1);
 				}
 
-				String commandStr;
-				String parameterStr;
-				int slash = url.indexOf("/", 1);
-				if(slash >= 0) {
-					// It's /<something>/some other stuff>
-					commandStr = url.substring(1, slash);
-					parameterStr = url.substring(slash + 1);
-				} else {
-					// It's just /<something>
-					commandStr = url.substring(1);
-					parameterStr = "";
+				try {
+					logger.debug("Asking provider to provide " + method + " on " + path);
+					sendContent(sessionId, provider.provide(method, path, data), isBrowser);
+				} catch(InvalidLoginException e) {
+					Session.INSTANCE.remove(sessionId);
+					sendAuth();
+				} catch(ObjectNotFoundException e) {
+					sendError(sessionId, 404, e.getMessage());
 				}
-
-				Command command = getCommand(provider, commandStr);
-				if(command != null) {
-					logger.debug("Asking provider to provide " + method + " on " + command + " using " + parameterStr);
-					String[] parameters = parameterStr.split("/");
-
-					try {
-						sendContent(sessionId, provider.provide(method, command, parameters, data), isBrowser);
-					} catch(InvalidLoginException e) {
-						Session.INSTANCE.remove(sessionId);
-						sendAuth();
-					} catch(ObjectNotFoundException e) {
-						sendError(sessionId, 404, e.getMessage());
-					}
-				} else {
-					if(provider != Session.getDefaultProvider()) {
-						String msg = "Unsupported request " + request;
-						logger.error(msg);
-						sendError(sessionId, 404, msg);
-					} else {
-						sendAuth();
-					}
-				}
+			} else {
+				sendAuth();
 			}
 		} else {
 			String msg = "Malformed request " + request;

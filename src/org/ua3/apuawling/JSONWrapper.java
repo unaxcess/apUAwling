@@ -57,11 +57,15 @@ public class JSONWrapper {
 	}
 	
 	public String toString() {
+		return toString(0);
+	}
+	
+	public String toString(int indentFactor) {
 		try {
 			if(array != null) {
-				return array.toString(2);
+				return array.toString(indentFactor);
 			} else if(object != null) {
-				return object.toString(2);
+				return object.toString(indentFactor);
 			}
 			
 			return null;

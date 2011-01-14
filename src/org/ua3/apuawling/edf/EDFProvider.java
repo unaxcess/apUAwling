@@ -9,210 +9,38 @@ import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.ua2.clientlib.UA;
 import org.ua2.clientlib.UASession;
-import org.ua2.clientlib.exception.NoConnectionError;
 import org.ua2.edf.EDFData;
-import org.ua2.edf.EDFTypeException;
 import org.ua3.apuawling.IProvider;
 import org.ua3.apuawling.InvalidCommandException;
-import org.ua3.apuawling.InvalidLoginException;
 import org.ua3.apuawling.JSONWrapper;
 import org.ua3.apuawling.ObjectNotFoundException;
 import org.ua3.apuawling.ProviderException;
-import org.ua3.apuawling.Server;
-import org.ua3.apuawling.Session;
 
-public class EDFProvider implements IProvider {
+public class EDFProvider extends EDFClient implements IProvider {
 
-	private final String host;
-	private final int port;
-	private final String username;
-	private final String password;
-	private final InetAddress address;
-	private final String client;
-	
-	private UASession session = null;
 	private long lastRequest = 0;
 
 	private Map<String, Integer> folderLookup = null;
 	private static Map<String, Integer> userLookup = null;
 	private static Map<Integer, String> bodyLookup = new HashMap<Integer, String>();
 
-	private static final Command[] COMMANDS = new Command[] { Command.FOLDER, Command.FOLDERS, Command.MESSAGE, Command.SYSTEM, Command.USER, Command.USERS, };
-
 	private static final Logger logger = Logger.getLogger(EDFProvider.class);
 	
-	public EDFProvider(String host, int port) {
-		this(host, port, null, null, null, null);
-	}
-
 	public EDFProvider(String host, int port, String username, String password, InetAddress address, String client) {
-		this.host = host;
-		this.port = port;
-		this.username = username;
-		this.password = password;
-		this.address = address;
-		this.client = client;
+		super(host, port, username, password, address, client);
 		
 		lastRequest = System.currentTimeMillis();
 	}
 
-	public String getUsername() {
-		return username;
-	}
-
-	public InetAddress getAddress() {
-		return address;
-	}
-	
 	public long getLastRequest() {
 		return lastRequest;
 	}
 	
-	public void disconnect() {
-		try {
-			if(session != null) {
-				session.logout();
-			}
-		} catch(NoConnectionError e) {
-			logger.error("Logout failed", e);
-		}
-	}
-
-	private static void handleException(String logMsg, Exception e) throws ProviderException {
-		handleException(logMsg, e, logMsg);
-	}
-	
-	private static void handleException(String logMsg, Exception e, String msg) throws ProviderException {
-		if(logMsg != null) {
-			logger.error(logMsg, e);
-		}
-		if(e != null && e instanceof ProviderException) {
-			throw (ProviderException)e;
-		}
-		throw new ProviderException(msg);
-	}
-
-	private UASession getSession() throws ProviderException {
+	protected UASession getSession() throws ProviderException {
 		lastRequest = System.currentTimeMillis();
 		
-		if(session != null) {
-			return session;
-		}
-
-		try {
-			logger.debug("Creating UA session");
-			UA ua = new UA();
-			session = new UASession(ua);
-
-			logger.debug("Connecting to " + host + " on " + port);
-			session.connect(host, port);
-
-			if(username != null) {
-				if(client != null) {
-					session.setClientName(client);
-				} else {
-					session.setClientName("apUAwling v" + Server.VERSION);
-				}
-				session.setClientProtocol("3.0-pre");
-				
-				if(!session.login(username, password, address, true)) {
-					session = null;
-					handleException("Login failed", new InvalidLoginException("Invalid credentials"));
-				}
-			}
-		} catch(Exception e) {
-			session = null;
-			handleException("Login failed", e);
-		}
-
-		return session;
-	}
-
-	private EDFData sendAndRead(EDFData request) throws ProviderException {
-		for(int attempt = 1; attempt <= 3; attempt++) {
-			try {
-				return getSession().sendAndRead(request);
-			} catch(NoConnectionError e) {
-				session = null;
-				logger.error("No connection to UA", e);
-			}
-		}
-		
-		throw new ProviderException("Cannot connect to server");
-	}
-
-	private String getChildStr(EDFData data, String name) {
-		EDFData child = data.getChild(name);
-		if(child == null) {
-			return null;
-		}
-		return child.getString();
-	}
-
-	private int getChildInt(EDFData data, String name) {
-		EDFData child = data.getChild(name);
-		if(child == null) {
-			return 0;
-		}
-		return child.getInteger();
-	}
-
-	private boolean isChildBool(EDFData data, String name) {
-		EDFData child = data.getChild(name);
-		if(child == null) {
-			return false;
-		}
-		try {
-			Integer value = child.getInteger();
-			return value == 1;
-		} catch(EDFTypeException e) {
-			logger.error("Cannot get " + name + " value", e);
-			return false;
-		}
-	}
-
-	private void copyChildStr(EDFData src, String name, JSONObject dest) throws JSONException {
-		copyChildStr(src, name, dest, name);
-	}
-	
-	private void copyChildStr(EDFData src, String srcName, JSONObject dest, String destName) throws JSONException {
-		EDFData child = src.getChild(srcName);
-		if(child != null) {
-			dest.put(destName, child.getString());
-		}
-	}
-	
-	private boolean copyChildStr(JSONObject src, String name, EDFData dest) {
-		return copyChildStr(src, name, dest, name);
-	}
-
-	private boolean copyChildStr(JSONObject src, String srcName, EDFData dest, String destName) {
-		try {
-			String value = src.getString(srcName);
-			if(value != null) {
-				dest.add(destName, value);
-				return true;
-			}
-		} catch(JSONException e) {
-		}
-		
-		return false;
-	}
-	
-	private boolean copyChildInt(EDFData src, String name, JSONObject dest) throws JSONException {
-		return copyChildInt(src, name, dest, name);
-	}
-
-	private boolean copyChildInt(EDFData src, String srcName, JSONObject dest, String destName) throws JSONException {
-		EDFData child = src.getChild(srcName);
-		if(child == null) {
-			return false;
-		}
-		
-		dest.put(destName, child.getInteger());
-		return true;
+		return super.getSession();
 	}
 
 	private void addFoldersToLookup(EDFData data) throws JSONException {
@@ -376,34 +204,21 @@ public class EDFProvider implements IProvider {
 		return body;
 	}
 
-	public Command[] getCommands() throws ProviderException {
-		if(this == Session.getDefaultProvider()) {
-			// What can you do without logging in?
-			return new Command[] { Command.SYSTEM };
-		}
-		
-		return COMMANDS;
-	}
+	public String[] NO_PARAMETERS = new String[] {};
 	
-	private String getParameters(String[] parameters) {
-		if(parameters == null) {
-			return null;
+	public String[] getParameters(String path) {
+		int pos = path.indexOf("/");
+		if(pos == -1) {
+			return NO_PARAMETERS;
 		}
-		
-		StringBuilder sb = new StringBuilder();
-		sb.append("[");
-		for(String parameter : parameters) {
-			sb.append(" ");
-			sb.append(parameter);
-		}
-		sb.append(" ]");
-		return sb.toString();
+		return path.substring(pos + 1).split("/");
 	}
 
-	public Object provide(String method, Command command, String[] parameters, JSONWrapper data) throws ProviderException {
-		if(logger.isDebugEnabled()) logger.debug("Providing " + method + " on " + command + " using " + getParameters(parameters) + ( data != null ? " and " + data.toString() : ""));
+	public Object provide(String method, String path, JSONWrapper data) throws ProviderException {
+		if(logger.isDebugEnabled()) logger.debug("Providing " + method + " on " + path + ( data != null ? " and " + data.toString() : ""));
 		
-		if(Command.FOLDERS == command) {
+		String[] parameters = getParameters(path);
+		if(path.equals("/folders")) {
 			boolean subscribedOnly = false;
 			boolean unreadOnly = false;
 			for(String parameter : parameters) {
@@ -419,7 +234,7 @@ public class EDFProvider implements IProvider {
 			}
 			return getFolders(subscribedOnly, unreadOnly);
 
-		} else if(Command.FOLDER == command) {
+		} else if(path.startsWith("/folder/")) {
 			if(parameters.length >= 1) {
 				if("POST".equals(method)) {
 					String name = parameters[0];
@@ -444,21 +259,21 @@ public class EDFProvider implements IProvider {
 			}
 			throw new InvalidCommandException("Must supply folder name");
 
-		} else if(Command.MESSAGE == command) {
+		} else if(path.startsWith("/message/")) {
 			if(parameters.length >= 1) {
 				if("read".equals(parameters[0])) {
 					if("POST".equals(method)) {
 						return markMessages(true, data.getArray());
 						
 					} else {
-						throw new ProviderException("Method " + method + " is not supported by " + command);
+						throw new ProviderException("Method " + method + " is not supported by " + path);
 					}
 				} else if("unread".equals(parameters[0])) {
 					if("POST".equals(method)) {
 						return markMessages(false, data.getArray());
 						
 					} else {
-						throw new ProviderException("Method " + method + " is not supported by " + command);
+						throw new ProviderException("Method " + method + " is not supported by " + path);
 					}
 				} else {
 					int id = 0;
@@ -479,13 +294,13 @@ public class EDFProvider implements IProvider {
 			}
 	
 			throw new InvalidCommandException("Must supply message ID");
-		} else if(Command.SYSTEM == command) {
+		} else if(path.equals("/system")) {
 			return getSystem();
 
-		} else if(Command.USER == command) {
+		} else if(path.equals("/user")) {
 			return getUser();
 
-		} else if(Command.USERS == command) {
+		} else if(path.startsWith("/users/")) {
 			boolean onlineOnly = false;
 			for(String parameter : parameters) {
 				if(parameter.equals("online")) {
@@ -495,17 +310,7 @@ public class EDFProvider implements IProvider {
 			return getUsers(onlineOnly);
 		}
 
-		throw new InvalidCommandException(command + " not supported");
-	}
-
-	public void close() throws ProviderException {
-		try {
-			getSession().logout();
-		} catch(NoConnectionError e) {
-			logger.error("Cannot close session", e);
-		} finally {
-			session = null;
-		}
+		throw new InvalidCommandException(path + " not supported");
 	}
 
 	public JSONArray getFolders(boolean subscribedOnly, boolean unreadOnly) throws ProviderException {

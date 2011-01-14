@@ -1,3 +1,10 @@
+Version 0.6 (14/01/2011)
+------------------------
+
+- Refactored EDFProvider to separate out EDF client
+- Removed commands list, made provide checks just look at strings
+- Added caching via internal client connection
+
 Version 0.5c (12/01/2011)
 ------------------------
 
