@@ -87,7 +87,7 @@ public class EDFClient {
 				} else {
 					session.setClientName("apUAwling v" + Server.VERSION);
 				}
-				session.setClientProtocol("3.0-pre");
+				session.setClientProtocol("JSON " + Server.VERSION);
 				
 				if(!session.login(username, password, address, true)) {
 					session = null;
