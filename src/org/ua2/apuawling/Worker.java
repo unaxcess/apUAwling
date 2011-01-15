@@ -34,7 +34,7 @@ public class Worker {
 	private PrintStream stream;
 
 	private static final String TEXT_TYPE = "text/html";
-	private static final String COOKIE_NAME = "ua3session";
+	private static final String COOKIE_NAME = "APUAWLING-SESSIONID";
 	private static final String CRLF = "\r\n";
 
 	private static final DateFormat NO_CACHE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
@@ -126,7 +126,7 @@ public class Worker {
 	
 	private void sendAuth() {
 		sendError(null, 401, null);
-		sendHeader("WWW-Authenticate", "Basic realm=\"ua3\"");
+		sendHeader("WWW-Authenticate", "Basic realm=\"uaJSON\"");
 	}
 
 	private void processRequest(String sessionId, Map<String, String> headers, String request, JSONWrapper data, String auth) throws ProviderException, JSONException {
