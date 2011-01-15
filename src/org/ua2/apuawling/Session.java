@@ -1,4 +1,4 @@
-package org.ua3.apuawling;
+package org.ua2.apuawling;
 
 import java.net.InetAddress;
 import java.util.HashSet;
@@ -8,9 +8,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
+import org.ua2.apuawling.edf.EDFClient;
+import org.ua2.apuawling.edf.EDFProvider;
 import org.ua2.clientlib.exception.NoConnectionError;
-import org.ua3.apuawling.edf.EDFClient;
-import org.ua3.apuawling.edf.EDFProvider;
 
 public class Session {
 	private enum Mode { EDF, REDIS };

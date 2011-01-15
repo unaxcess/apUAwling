@@ -1,18 +1,18 @@
-package org.ua3.apuawling.edf;
+package org.ua2.apuawling.edf;
 
 import java.net.InetAddress;
 
 import org.apache.log4j.Logger;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.ua2.apuawling.InvalidLoginException;
+import org.ua2.apuawling.ProviderException;
+import org.ua2.apuawling.Server;
 import org.ua2.clientlib.UA;
 import org.ua2.clientlib.UASession;
 import org.ua2.clientlib.exception.NoConnectionError;
 import org.ua2.edf.EDFData;
 import org.ua2.edf.EDFTypeException;
-import org.ua3.apuawling.InvalidLoginException;
-import org.ua3.apuawling.ProviderException;
-import org.ua3.apuawling.Server;
 
 public class EDFClient {
 

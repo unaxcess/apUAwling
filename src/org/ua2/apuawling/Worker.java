@@ -6,7 +6,7 @@
  * @author techno
  *
  */
-package org.ua3.apuawling;
+package org.ua2.apuawling;
 
 import java.io.BufferedReader;
 import java.io.InputStream;

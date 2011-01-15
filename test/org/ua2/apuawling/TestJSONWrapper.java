@@ -1,10 +1,11 @@
-package org.ua3.apuawling;
+package org.ua2.apuawling;
 
 import junit.framework.TestCase;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.ua2.apuawling.JSONWrapper;
 
 public class TestJSONWrapper extends TestCase {
 	

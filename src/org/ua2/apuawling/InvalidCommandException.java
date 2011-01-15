@@ -1,4 +1,4 @@
-package org.ua3.apuawling;
+package org.ua2.apuawling;
 
 @SuppressWarnings("serial")
 public class InvalidCommandException extends ProviderException {

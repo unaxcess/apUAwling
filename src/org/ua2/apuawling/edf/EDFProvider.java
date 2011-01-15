@@ -1,4 +1,4 @@
-package org.ua3.apuawling.edf;
+package org.ua2.apuawling.edf;
 
 import java.net.InetAddress;
 import java.util.HashMap;
@@ -9,13 +9,13 @@ import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.ua2.apuawling.IProvider;
+import org.ua2.apuawling.InvalidCommandException;
+import org.ua2.apuawling.JSONWrapper;
+import org.ua2.apuawling.ObjectNotFoundException;
+import org.ua2.apuawling.ProviderException;
 import org.ua2.clientlib.UASession;
 import org.ua2.edf.EDFData;
-import org.ua3.apuawling.IProvider;
-import org.ua3.apuawling.InvalidCommandException;
-import org.ua3.apuawling.JSONWrapper;
-import org.ua3.apuawling.ObjectNotFoundException;
-import org.ua3.apuawling.ProviderException;
 
 public class EDFProvider extends EDFClient implements IProvider {
 

@@ -1,4 +1,4 @@
-package org.ua3.apuawling;
+package org.ua2.apuawling;
 
 import org.ua2.clientlib.UA;
 import org.ua2.clientlib.UASession;

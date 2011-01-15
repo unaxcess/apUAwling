@@ -5,7 +5,7 @@
  * 
  * @author techno
  */
-package org.ua3.apuawling;
+package org.ua2.apuawling;
 
 import java.io.FileInputStream;
 import java.io.IOException;
