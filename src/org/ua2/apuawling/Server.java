@@ -29,19 +29,15 @@ public class Server implements Runnable {
 
 	private static final Logger logger = Logger.getLogger(Server.class);
 
-	public Server() {
+	public Server() throws IOException {
 		int port = Integer.parseInt(config.getProperty("port"));
 		int numThreads = Integer.parseInt(config.getProperty("numThreads", "3"));
 
-		try {
-			logger.info("Creating listener on port " + port);
-			listener = new ServerSocket(port);
+		logger.info("Creating listener on port " + port);
+		listener = new ServerSocket(port);
 
-			logger.info("Creating worker service with " + numThreads + " threads");
-			service = Executors.newFixedThreadPool(numThreads);
-		} catch(IOException e) {
-			logger.error("Cannot initialise server", e);
-		}
+		logger.info("Creating worker service with " + numThreads + " threads");
+		service = Executors.newFixedThreadPool(numThreads);
 	}
 
 	public void run() {
