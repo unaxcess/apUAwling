@@ -23,7 +23,6 @@ public class Session {
 	private static String edfPassword;
 
 	private final Map<String, IProvider> authMap = new ConcurrentHashMap<String, IProvider>();
-	private final Map<String, IProvider> sessionMap = new ConcurrentHashMap<String, IProvider>();
 	private static EDFClient edfCachingClient = null;
 
 	private final int TIMEOUT_MINUTES = 10;
@@ -40,7 +39,6 @@ public class Session {
 					try {
 						long timestamp = System.currentTimeMillis() - TIMEOUT_MINUTES * 60 * 1000;
 						checkMap(authMap, timestamp);
-						checkMap(sessionMap, timestamp);
 						
 						// Sleep for half the timeout
 						Thread.sleep(30000 * TIMEOUT_MINUTES);
@@ -95,27 +93,13 @@ public class Session {
 		return username + "|" + address.getHostAddress() + "|" + client;
 	}
 
-	public String getSessionId(String sessionId, String username, String password, InetAddress address, String client) throws ProviderException {
+	public synchronized IProvider getProvider(String username, String password, InetAddress address, String client) throws ProviderException {
 		IProvider provider = null;
 		
-		if(sessionId != null) {
-			provider = sessionMap.get(sessionId);
-			if(logger.isTraceEnabled()) logger.trace("Provider for session " + sessionId + " is " + provider);
-		}
+		provider = authMap.get(getMapKey(username, address, client));
+		if(logger.isTraceEnabled()) logger.trace("Provider for auth " + getMapKey(username, address, client) + " is " + provider);
 		
 		if(provider == null) {
-			provider = authMap.get(getMapKey(username, address, client));
-			if(logger.isTraceEnabled()) logger.trace("Provider for auth " + getMapKey(username, address, client) + " is " + provider);
-		}
-		
-		if(provider != null) {
-			for(Entry<String, IProvider> entry : sessionMap.entrySet()) {
-				if(entry.getValue() == provider) {
-					sessionId = entry.getKey();
-					break;
-				}
-			}
-		} else {
 			if(username == null || password == null) {
 				logger.debug("Cannot create a provider if username or password is null");
 				return null;
@@ -126,36 +110,14 @@ public class Session {
 				provider = new EDFProvider(edfHost, edfPort, username, password, address, client);
 			}
 
-			sessionId = Long.toString(System.currentTimeMillis());
-
 			authMap.put(getMapKey(username, address, client), provider);
-			sessionMap.put(sessionId, provider);
 		}
 
-		logger.debug("Session ID for " + getMapKey(username, address, client) + " is " + sessionId);
-
-		return sessionId;
-	}
-	
-	public IProvider getProvider(String sessionId) throws ProviderException {
-		if(sessionId == null) {
-			return null;
-		}
-		
-		IProvider provider = sessionMap.get(sessionId);
-		logger.trace("Provider for " + sessionId + " is " + provider);
+		logger.debug("Provider for " + getMapKey(username, address, client) + " is " + provider);
 		return provider;
 	}
-
-	public void remove(String sessionId) {
-		IProvider provider = sessionMap.get(sessionId);
-		if(provider == null) {
-			return;
-		}
-		
-		logger.debug("Removing session " + sessionId + " as provider " + provider);
-		sessionMap.remove(sessionId);
-		
+	
+	public void removeProvider(IProvider provider) {
 		String key = null;
 		for(Entry<String, IProvider> entry : authMap.entrySet()) {
 			if(entry.getValue() == provider) {

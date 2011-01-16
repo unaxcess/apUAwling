@@ -34,7 +34,6 @@ public class Worker {
 	private PrintStream stream;
 
 	private static final String TEXT_TYPE = "text/html";
-	private static final String COOKIE_NAME = "APUAWLING-SESSIONID";
 	private static final String CRLF = "\r\n";
 
 	private static final DateFormat NO_CACHE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
@@ -84,7 +83,7 @@ public class Worker {
 		}
 	}
 
-	private void sendHelp(String sessionId, IProvider provider) {
+	private void sendHelp(IProvider provider) {
 		Properties buildProps = new Properties();
 		try {
 			buildProps.load(getClass().getClassLoader().getResourceAsStream("build.properties"));
@@ -121,16 +120,16 @@ public class Worker {
 		sb.append("</body>\n");
 		sb.append("\n</html>");
 
-		sendContent(sessionId, sb.toString());
+		sendContent(sb.toString());
 	}
 	
 	private void sendAuth() {
-		sendError(null, 401, null);
+		sendError(401, null);
 		sendHeader("WWW-Authenticate", "Basic realm=\"uaJSON\"");
 	}
 
-	private void processRequest(String sessionId, Map<String, String> headers, String request, JSONWrapper data, String auth) throws ProviderException, JSONException {
-		logger.debug("Request " + request + " in session " + sessionId);
+	private void processRequest(Map<String, String> headers, String request, JSONWrapper data, String auth) throws ProviderException, JSONException {
+		logger.debug("Request " + request);
 
 		if(logger.isTraceEnabled()) {
 			logger.trace("Headers:");
@@ -157,16 +156,14 @@ public class Worker {
 		
 		String userAgent = headers.get("User-Agent");
 		
-		IProvider provider = null;
-		synchronized(Session.INSTANCE) {
-			sessionId = Session.INSTANCE.getSessionId(sessionId, username, password, address, userAgent);
+		IProvider provider = Session.INSTANCE.getProvider(username, password, address, userAgent);
 
-			provider = Session.INSTANCE.getProvider(sessionId);
-		}
-
-		boolean isBrowser = false;
-		if(userAgent != null && userAgent.startsWith("Mozilla")) {
-			isBrowser = true;
+		boolean isBrowser = true;
+		for(Entry<String, String> entry : headers.entrySet()) {
+			if("X-Requested-With".equalsIgnoreCase(entry.getKey()) && "XMLHttpRequest".equals(entry.getValue())) {
+				isBrowser = false;
+				break;
+			}
 		}
 
 		String[] fields = request.split(" ");
@@ -175,7 +172,7 @@ public class Worker {
 			String path = fields[1];
 
 			if(path.equals("/")) {
-				sendHelp(sessionId, provider);
+				sendHelp(provider);
 			} else if(provider != null) {
 				// Strip trailing slashes
 				while(path.endsWith("/")) {
@@ -184,12 +181,12 @@ public class Worker {
 
 				try {
 					logger.debug("Asking provider to provide " + method + " on " + path);
-					sendContent(sessionId, provider.provide(method, path, data), isBrowser);
+					sendContent(provider.provide(method, path, data), isBrowser);
 				} catch(InvalidLoginException e) {
-					Session.INSTANCE.remove(sessionId);
+					Session.INSTANCE.removeProvider(provider);
 					sendAuth();
 				} catch(ObjectNotFoundException e) {
-					sendError(sessionId, 404, e.getMessage());
+					sendError(404, e.getMessage());
 				}
 			} else {
 				sendAuth();
@@ -197,7 +194,7 @@ public class Worker {
 		} else {
 			String msg = "Malformed request " + request;
 			logger.error(msg);
-			sendError(sessionId, 400, msg);
+			sendError(400, msg);
 		}
 	}
 
@@ -206,7 +203,6 @@ public class Worker {
 		logger.trace("Starting work");
 		
 		String request = null;
-		String sessionId = null;
 
 		try {
 			Map<String, String> headers = new HashMap<String, String>();
@@ -226,22 +222,7 @@ public class Worker {
 						String name = line.substring(0, colon);
 						String value = line.substring(colon + 2);
 
-						if(name.equals("Cookie")) {
-							int equals = value.indexOf("=");
-							if(equals > 0) {
-								String cookieName = value.substring(0, equals);
-								String cookieValue = value.substring(equals + 1);
-
-								if(COOKIE_NAME.equals(cookieName)) {
-									logger.debug("Found UA3 session cookie header " + line);
-									sessionId = cookieValue;
-								} else {
-									headers.put(name, value);
-								}
-							} else {
-								logger.warn("Invalid cookie header " + line);
-							}
-						} else if(name.equals("Authorization")) {
+						if(name.equals("Authorization")) {
 							logger.debug("Found auth " + value);
 							int space = value.indexOf(" ");
 							if(space > 0) {
@@ -272,19 +253,19 @@ public class Worker {
 					data = JSONWrapper.parse(content.toString());
 				} catch(JSONException e) {
 					logger.error("Cannot parse content: " + content.toString(), e);
-					sendError(sessionId, 500, "Cannot parse content as JSON");
+					sendError(500, "Cannot parse content as JSON");
 					process = false;
 				}
 			}
 			
 			if(process) {
-				processRequest(sessionId, headers, request, data, auth);
+				processRequest(headers, request, data, auth);
 			}
 		} catch(Exception e) {
 			String msg = "Error while servicing request " + request;
 			logger.error(msg, e);
 			msg += ". " + e.getMessage();
-			sendError(sessionId, 500, msg);
+			sendError(500, msg);
 		}
 		
 		long diff = System.currentTimeMillis() - start;
@@ -301,8 +282,8 @@ public class Worker {
 		print(name + ": " + value);
 	}
 	
-	private void sendResponse(String sessionId, int code, String type, String content) {
-		logger.trace("Sending response " + code + " to " + sessionId);
+	private void sendResponse(int code, String type, String content) {
+		logger.trace("Sending response " + code);
 
 		String message = "Unknown";
 		if(code == 200) {
@@ -316,10 +297,6 @@ public class Worker {
 		}
 
 		print("HTTP/1.0 " + code + " " + message);
-
-		if(sessionId != null) {
-			sendHeader("Set-Cookie", COOKIE_NAME + "=" + sessionId);
-		}
 
 		if(content != null) {
 			logger.trace("Sending content as " + type + ":\n" + content);
@@ -340,24 +317,24 @@ public class Worker {
 		}
 	}
 	
-	private void sendError(String sessionId, int code, String content) {
-		sendResponse(sessionId, code, TEXT_TYPE, content);
+	private void sendError(int code, String content) {
+		sendResponse(code, TEXT_TYPE, content);
 	}
 
-	private void sendContent(String sessionId, String content) {
-		sendResponse(sessionId, 200, TEXT_TYPE, content);
+	private void sendContent(String content) {
+		sendResponse(200, TEXT_TYPE, content);
 	}
 
-	private void sendContent(String sessionId, String content, boolean isBrowser) {
+	private void sendContent(String content, boolean isBrowser) {
 		String type = TEXT_TYPE;
 		if(!isBrowser) {
 			type = "application/json";
 		}
 
-		sendResponse(sessionId, 200, type, content);
+		sendResponse(200, type, content);
 	}
 	
-	private void sendContent(String sessionId, Object obj, boolean isBrowser) throws JSONException {
+	private void sendContent(Object obj, boolean isBrowser) throws JSONException {
 		String str = "";
 
 		if(obj != null) {
@@ -377,6 +354,6 @@ public class Worker {
 			}
 		}
 		
-		sendContent(sessionId, str, isBrowser);
+		sendContent(str, isBrowser);
 	}
 }

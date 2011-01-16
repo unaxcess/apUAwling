@@ -14,6 +14,7 @@ import org.ua2.apuawling.InvalidCommandException;
 import org.ua2.apuawling.JSONWrapper;
 import org.ua2.apuawling.ObjectNotFoundException;
 import org.ua2.apuawling.ProviderException;
+import org.ua2.apuawling.Utils;
 import org.ua2.clientlib.UASession;
 import org.ua2.edf.EDFData;
 
@@ -124,6 +125,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 				copyChildStr(child, "name", folder, "folder");
 				folder.put("count", count);
 				folder.put("unread", unread);
+				folder.put("subscribed", subtype > 0);
 				list.put(folder);
 			}
 
@@ -218,9 +220,12 @@ public class EDFProvider extends EDFClient implements IProvider {
 		if(logger.isDebugEnabled()) logger.debug("Providing " + method + " on " + path + ( data != null ? " and " + data.toString() : ""));
 		
 		String[] parameters = getParameters(path);
-		if(path.equals("/folders")) {
+		if(logger.isDebugEnabled()) logger.debug("Path parameters " + Utils.toString(parameters));
+		
+		if(path.startsWith("/folders")) {
 			boolean subscribedOnly = false;
 			boolean unreadOnly = false;
+			boolean summary = false;
 			for(String parameter : parameters) {
 				if(parameter.equals("subscribed")) {
 					subscribedOnly = true;
@@ -230,18 +235,20 @@ public class EDFProvider extends EDFClient implements IProvider {
 				} else if(parameter.equals("all")) {
 					subscribedOnly = false;
 					unreadOnly = false;
+				} else if(parameter.equals("summary")) {
+					summary = true;
 				}
 			}
-			return getFolders(subscribedOnly, unreadOnly);
+			return getFolders(subscribedOnly, unreadOnly, summary);
 
 		} else if(path.startsWith("/folder/")) {
-			if(parameters.length >= 1) {
+			if(parameters.length >= 2) {
 				if("POST".equals(method)) {
-					String name = parameters[0];
+					String name = parameters[1];
 					return addMessage(name, data.getObject());
 					
 				} else {
-					String name = parameters[0];
+					String name = parameters[1];
 					boolean unreadOnly = false;
 					boolean full = false;
 					for(String parameter : parameters) {
@@ -260,8 +267,8 @@ public class EDFProvider extends EDFClient implements IProvider {
 			throw new InvalidCommandException("Must supply folder name");
 
 		} else if(path.startsWith("/message/")) {
-			if(parameters.length >= 1) {
-				if("read".equals(parameters[0])) {
+			if(parameters.length >= 2) {
+				if("read".equals(parameters[1])) {
 					if("POST".equals(method)) {
 						return markMessages(true, data.getArray());
 						
@@ -278,7 +285,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 				} else {
 					int id = 0;
 					try {
-						id = Integer.parseInt(parameters[0]);
+						id = Integer.parseInt(parameters[1]);
 					} catch(NumberFormatException e) {
 						throw new ProviderException("Message ID " + parameters[0] + " must be numeric");
 					}
@@ -293,7 +300,8 @@ public class EDFProvider extends EDFClient implements IProvider {
 				}
 			}
 	
-			throw new InvalidCommandException("Must supply message ID");
+			throw new InvalidCommandException("Not enough parameters");
+			
 		} else if(path.equals("/system")) {
 			return getSystem();
 
@@ -308,14 +316,15 @@ public class EDFProvider extends EDFClient implements IProvider {
 				}
 			}
 			return getUsers(onlineOnly);
+			
 		}
 
 		throw new InvalidCommandException(path + " not supported");
 	}
 
-	public JSONArray getFolders(boolean subscribedOnly, boolean unreadOnly) throws ProviderException {
+	public JSONArray getFolders(boolean subscribedOnly, boolean unreadOnly, boolean summary) throws ProviderException {
 		JSONArray response = null;
-		logger.trace("Getting folders subscribedOnly=" + subscribedOnly + " unreadOnly=" + unreadOnly);
+		logger.trace("Getting folders subscribedOnly=" + subscribedOnly + " unreadOnly=" + unreadOnly + " summary=" + summary);
 		
 		try {
 			EDFData request = new EDFData("request", "folder_list");
