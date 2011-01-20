@@ -1,3 +1,8 @@
+Version 0.6b (18/01/2011)
+------------------------
+
+- Added "/browse" prefix to path checking
+
 Version 0.6a (16/01/2011)
 ------------------------
 
