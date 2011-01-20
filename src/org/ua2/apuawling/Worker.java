@@ -158,27 +158,23 @@ public class Worker {
 		
 		IProvider provider = Session.INSTANCE.getProvider(username, password, address, userAgent);
 
-		boolean isBrowser = true;
-		for(Entry<String, String> entry : headers.entrySet()) {
-			if("X-Requested-With".equalsIgnoreCase(entry.getKey()) && "XMLHttpRequest".equals(entry.getValue())) {
-				isBrowser = false;
-				break;
-			}
-		}
+		boolean isBrowser = false;
 
 		String[] fields = request.split(" ");
 		if(fields.length == 3) {
 			String method = fields[0];
 			String path = fields[1];
+			if(path.startsWith("/browse")) {
+				isBrowser = true;
+				path = path.substring(7);
+			}
+
+			// Strip possible multiple slashes read for path split later
+	        path = path.replaceAll("/+", "/");
 
 			if(path.equals("/")) {
 				sendHelp(provider);
 			} else if(provider != null) {
-				// Strip trailing slashes
-				while(path.endsWith("/")) {
-					path = path.substring(0, path.length() - 1);
-				}
-
 				try {
 					logger.debug("Asking provider to provide " + method + " on " + path);
 					sendContent(provider.provide(method, path, data), isBrowser);
@@ -202,7 +198,7 @@ public class Worker {
 		long start = System.currentTimeMillis();
 		logger.trace("Starting work");
 		
-		String request = null;
+		String path = null;
 
 		try {
 			Map<String, String> headers = new HashMap<String, String>();
@@ -214,8 +210,8 @@ public class Worker {
 			String line = null;
 			do {
 				line = reader.readLine();
-				if(request == null) {
-					request = line;
+				if(path == null) {
+					path = line;
 				} else if(line != null) {
 					int colon = line.indexOf(": ");
 					if(colon > 0) {
@@ -259,10 +255,10 @@ public class Worker {
 			}
 			
 			if(process) {
-				processRequest(headers, request, data, auth);
+				processRequest(headers, path, data, auth);
 			}
 		} catch(Exception e) {
-			String msg = "Error while servicing request " + request;
+			String msg = "Error while servicing request " + path;
 			logger.error(msg, e);
 			msg += ". " + e.getMessage();
 			sendError(500, msg);
