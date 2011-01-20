@@ -20,7 +20,7 @@ import org.apache.log4j.Logger;
 public class Server implements Runnable {
 
 	public static final String CLIENT = "apUAwling";
-	public static final String VERSION = "0.6a";
+	public static final String VERSION = "0.6b";
 
 	private ServerSocket listener;
 	private ExecutorService service;
@@ -29,7 +29,16 @@ public class Server implements Runnable {
 
 	private static final Logger logger = Logger.getLogger(Server.class);
 
-	public Server() throws IOException {
+	public Server(String filename) throws IOException {
+		config.load(new FileInputStream(filename));
+
+		if("edf".equalsIgnoreCase(config.getProperty("mode"))) {
+			Session.INSTANCE.setEDFMode(
+					config.getProperty("edf.host"), Integer.parseInt(config.getProperty("edf.port")),
+					config.getProperty("edf.username"), config.getProperty("edf.password")
+			);
+		}
+		
 		int port = Integer.parseInt(config.getProperty("port"));
 		int numThreads = Integer.parseInt(config.getProperty("numThreads", "3"));
 
@@ -82,16 +91,7 @@ public class Server implements Runnable {
 		}
 
 		try {
-			config.load(new FileInputStream(args[0]));
-
-			if("edf".equalsIgnoreCase(config.getProperty("mode"))) {
-				Session.INSTANCE.setEDFMode(
-						config.getProperty("edf.host"), Integer.parseInt(config.getProperty("edf.port")),
-						config.getProperty("edf.username"), config.getProperty("edf.password")
-				);
-			}
-
-			Server server = new Server();
+			Server server = new Server(args[0]);
 
 			logger.info("Running server");
 			server.run();
