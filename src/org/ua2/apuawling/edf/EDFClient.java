@@ -95,8 +95,11 @@ public class EDFClient {
 				}
 			}
 		} catch(Exception e) {
+		  if(session != null) {
+			try { session.logout(); } catch(Exception e2) {};
 			session = null;
 			handleException("Login failed", e);
+		  }
 		}
 
 		return session;
@@ -105,7 +108,9 @@ public class EDFClient {
 	protected EDFData sendAndRead(EDFData request) throws ProviderException {
 		for(int attempt = 1; attempt <= 3; attempt++) {
 			try {
-				return getSession().sendAndRead(request);
+				if(getSession() != null) {
+					return getSession().sendAndRead(request);
+				}
 			} catch(NoConnectionError e) {
 				session = null;
 				logger.error("No connection to UA", e);
