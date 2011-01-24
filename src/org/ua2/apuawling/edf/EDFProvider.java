@@ -270,14 +270,14 @@ public class EDFProvider extends EDFClient implements IProvider {
 			if(parameters.length >= 2) {
 				if("read".equals(parameters[1])) {
 					if("POST".equals(method)) {
-						return markMessages(true, data.getArray());
+						return markMessages(data.getArray(), true, false, false);
 						
 					} else {
 						throw new ProviderException("Method " + method + " is not supported by " + path);
 					}
 				} else if("unread".equals(parameters[0])) {
 					if("POST".equals(method)) {
-						return markMessages(false, data.getArray());
+						return markMessages(data.getArray(), false, false, false);
 						
 					} else {
 						throw new ProviderException("Method " + method + " is not supported by " + path);
@@ -301,6 +301,18 @@ public class EDFProvider extends EDFClient implements IProvider {
 			}
 	
 			throw new InvalidCommandException("Not enough parameters");
+			
+		} else if("POST".equals(method) && path.startsWith("/catchup/")) {
+			if(parameters.length >= 2 && "message".equals(parameters[1])) {
+				boolean sticky = false;
+				if(parameters.length >= 3 && "sticky".equals(parameters[2])) {
+					sticky = true;
+				}
+				return markMessages(data.getArray(), true, true, sticky);
+				
+			} else {
+				throw new InvalidCommandException("Not supported " + path);
+			}
 			
 		} else if(path.equals("/system")) {
 			return getSystem();
@@ -474,7 +486,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 		return response;
 	}
 
-	private JSONObject markMessages(boolean mark, JSONArray array) throws ProviderException {
+	private JSONObject markMessages(JSONArray array, boolean mark, boolean catchup, boolean stayCaughtUp) throws ProviderException {
 		JSONObject response = new JSONObject();
 		
 		try {
@@ -485,6 +497,12 @@ public class EDFProvider extends EDFClient implements IProvider {
 				EDFData request = new EDFData("request", mark ? "message_mark_read" : "message_mark_unread");
 				
 				request.add("messageid", messageId);
+				if(catchup) {
+					request.add("marktype", 1);
+					if(stayCaughtUp) {
+						request.add("markkeep", 1);
+					}
+				}
 				
 				EDFData reply = sendAndRead(request);
 				
