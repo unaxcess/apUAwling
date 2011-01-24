@@ -1,3 +1,9 @@
+Version 0.6c (24/01/2011)
+------------------------
+
+- Made auth header check case insensitive
+- Added /catchup
+
 Version 0.6b (18/01/2011)
 ------------------------
 
