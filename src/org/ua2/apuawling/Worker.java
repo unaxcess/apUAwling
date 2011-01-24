@@ -17,10 +17,10 @@ import java.net.InetAddress;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.TreeMap;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
@@ -201,7 +201,7 @@ public class Worker {
 		String path = null;
 
 		try {
-			Map<String, String> headers = new HashMap<String, String>();
+			Map<String, String> headers = new TreeMap<String, String>();
 			String auth = null;
 			int contentLength = 0;
 			StringBuilder content = new StringBuilder();
@@ -218,7 +218,7 @@ public class Worker {
 						String name = line.substring(0, colon);
 						String value = line.substring(colon + 2);
 
-						if(name.equals("Authorization")) {
+						if(name.equalsIgnoreCase("Authorization")) {
 							logger.debug("Found auth " + value);
 							int space = value.indexOf(" ");
 							if(space > 0) {
