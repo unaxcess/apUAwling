@@ -1,3 +1,14 @@
+Version 0.6e (27/01/2011)
+------------------------
+
+- Added folder subscribe and unsubscribe support
+- Added synchronized block for session creation, improved connection cleanup
+
+Version 0.6d (26/01/2011)
+------------------------
+
+- Added proxy address setup from X-Headers  via Apache proxy
+
 Version 0.6c (24/01/2011)
 ------------------------
 
