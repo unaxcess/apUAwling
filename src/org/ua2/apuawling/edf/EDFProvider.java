@@ -49,7 +49,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 		for(EDFData child : children) {
 			String name = child.getChild("name").getString();
 			int id = child.getInteger();
-			logger.debug("Adding " + name + "-> " + id + " to folder lookup");
+			logger.debug("Adding " + name + " -> " + id + " to folder lookup");
 			folderLookup.put(name.toLowerCase(), id);
 			addFoldersToLookup(child);
 		}
@@ -157,6 +157,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 			copyChildInt(src, "messageid", dest, "id");
 		}
 
+		copyChildStr(src, "foldername", dest, "folder");
 		copyChildInt(src, "date", dest, "epoch");
 		copyChildStr(src, "fromname", dest, "from");
 		copyChildStr(src, "toname", dest, "to");
@@ -242,7 +243,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 			return getFolders(subscribedOnly, unreadOnly, summary);
 
 		} else if(path.startsWith("/folder/")) {
-			if(parameters.length >= 2) {
+			if(parameters.length == 2) {
 				if("POST".equals(method)) {
 					String name = parameters[1];
 					return addMessage(name, data.getObject());
@@ -263,8 +264,20 @@ public class EDFProvider extends EDFClient implements IProvider {
 					return getFolder(name, unreadOnly, full);
 					
 				}
+				
+			} else if(parameters.length == 3) {
+				String name = parameters[1];
+				if("POST".equals(method)) {
+					if("subscribe".equals(parameters[2])) {
+						return subscribeFolder(name, true);
+					} else if("unsubscribe".equals(parameters[2])) {
+						return subscribeFolder(name, false);
+					}
+				}
+				
 			}
-			throw new InvalidCommandException("Must supply folder name");
+			
+			throw new InvalidCommandException(path + " not supported");
 
 		} else if(path.startsWith("/message/")) {
 			if(parameters.length >= 2) {
@@ -384,6 +397,31 @@ public class EDFProvider extends EDFClient implements IProvider {
 			handleException("Cannot get messages in folder " + name, e);
 		}
 
+		return response;
+	}
+
+	public JSONObject subscribeFolder(String folder, boolean subscribe) throws ProviderException {
+		JSONObject response = null;
+		
+		try {
+			EDFData request = new EDFData("request", subscribe ? "folder_subscribe" : "folder_unsubscribe");
+
+			int id = getFolderId(folder);
+			if(id == -1) {
+				throw new ObjectNotFoundException("Folder " + folder + " does not exist");
+			}
+			request.add("folderid", id);
+			
+			EDFData reply = sendAndRead(request);
+			
+			response = new JSONObject();
+			
+			copyChildStr(reply, "foldername", response, "folder");
+
+		} catch(Exception e) {
+			handleException("Cannot add message to " + folder, e);
+		}
+		
 		return response;
 	}
 
