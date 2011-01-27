@@ -68,7 +68,7 @@ public class EDFClient {
 		throw new ProviderException(msg);
 	}
 
-	protected UASession getSession() throws ProviderException {
+	protected synchronized UASession getSession() throws ProviderException {
 		if(session != null) {
 			return session;
 		}
@@ -90,7 +90,6 @@ public class EDFClient {
 				session.setClientProtocol("JSON " + Server.VERSION);
 				
 				if(!session.login(username, password, address, true)) {
-					session = null;
 					handleException("Login failed", new InvalidLoginException("Invalid credentials"));
 				}
 			}
@@ -111,6 +110,9 @@ public class EDFClient {
 				if(getSession() != null) {
 					return getSession().sendAndRead(request);
 				}
+			} catch(InvalidLoginException e) {
+				session = null;
+				throw e;
 			} catch(NoConnectionError e) {
 				session = null;
 				logger.error("No connection to UA", e);
