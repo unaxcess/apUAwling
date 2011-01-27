@@ -41,7 +41,7 @@ public class Session {
 						checkMap(authMap, timestamp);
 						
 						// Sleep for half the timeout
-						Thread.sleep(30000 * TIMEOUT_MINUTES);
+						Thread.sleep(30 * 1000 * TIMEOUT_MINUTES);
 					} catch(Exception e) {
 						logger.error("Cannot check sessions", e);
 					}
@@ -83,10 +83,12 @@ public class Session {
 		edfUsername = username;
 		edfPassword = password;
 		
-		logger.debug("Creating default EDF provider");
-		edfCachingClient = new EDFClient(edfHost, edfPort, edfUsername, edfPassword, null, Server.CLIENT + " v" + Server.VERSION) {
+		if(edfUsername != null) {
+			logger.debug("Creating default EDF provider");
+			edfCachingClient = new EDFClient(edfHost, edfPort, edfUsername, edfPassword, null, Server.CLIENT + " v" + Server.VERSION) {
 			
-		};
+			};
+		}
 	}
 	
 	public String getMapKey(String username, InetAddress address, String client) {
