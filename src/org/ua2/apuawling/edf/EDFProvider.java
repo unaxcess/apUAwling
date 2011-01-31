@@ -166,13 +166,14 @@ public class EDFProvider extends EDFClient implements IProvider {
 		dest.put("read", isChildBool(src, "read"));
 		copyChildInt(src, "replyto", dest, "inReplyTo");
 		
-		List<EDFData> replyChildren = src.getChildren("inReplyTo");
+		List<EDFData> replyChildren = src.getChildren("replyto");
 		if(replyChildren != null && replyChildren.size() > 0) {
 			JSONArray replyHierarchy = new JSONArray();
 			for(EDFData replyChild : replyChildren) {
 				JSONObject replyHierarchyItem = new JSONObject();
 				int replyId = replyChild.getInteger();
 				replyHierarchyItem.put("id", replyId);
+				copyChildStr(replyChild, "fromname", replyHierarchyItem, "from");
 				copyChildStr(replyChild, "foldername", replyHierarchyItem, "folder");
 				replyHierarchy.put(replyHierarchyItem);
 			}
