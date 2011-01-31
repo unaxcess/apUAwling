@@ -65,7 +65,7 @@ public class EDFClient {
 		if(e != null && e instanceof ProviderException) {
 			throw (ProviderException)e;
 		}
-		throw new ProviderException(msg);
+		throw new ProviderException(msg, e);
 	}
 
 	protected synchronized UASession getSession() throws ProviderException {
