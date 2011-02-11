@@ -20,7 +20,7 @@ import org.apache.log4j.Logger;
 public class Server implements Runnable {
 
 	public static final String CLIENT = "apUAwling";
-	public static final String VERSION = "0.6e";
+	public static final String VERSION = "0.7";
 
 	private ServerSocket listener;
 	private ExecutorService service;
