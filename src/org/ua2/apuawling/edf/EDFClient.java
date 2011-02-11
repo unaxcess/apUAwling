@@ -152,26 +152,30 @@ public class EDFClient {
 		}
 	}
 
-	protected void copyChildStr(EDFData src, String name, JSONObject dest) throws JSONException {
-		copyChildStr(src, name, dest, name);
+	protected void copyChild(EDFData src, String name, JSONObject dest) throws JSONException {
+		copyChild(src, name, dest, name);
 	}
 	
-	protected void copyChildStr(EDFData src, String srcName, JSONObject dest, String destName) throws JSONException {
+	protected void copyChild(EDFData src, String srcName, JSONObject dest, String destName) throws JSONException {
 		EDFData child = src.getChild(srcName);
 		if(child != null) {
-			dest.put(destName, child.getString());
+			dest.put(destName, child.getValue());
 		}
 	}
 	
-	protected boolean copyChildStr(JSONObject src, String name, EDFData dest) {
-		return copyChildStr(src, name, dest, name);
+	protected boolean copyChild(JSONObject src, String name, EDFData dest) {
+		return copyChild(src, name, dest, name);
 	}
 
-	protected boolean copyChildStr(JSONObject src, String srcName, EDFData dest, String destName) {
+	protected boolean copyChild(JSONObject src, String srcName, EDFData dest, String destName) {
 		try {
-			String value = src.getString(srcName);
+			Object value = src.get(srcName);
 			if(value != null) {
-				dest.add(destName, value);
+				if(value instanceof Integer) {
+					dest.add(destName, (Integer)value);
+				} else if(value instanceof String) {
+					dest.add(destName, (String)value);
+				}
 				return true;
 			}
 		} catch(JSONException e) {
@@ -180,20 +184,6 @@ public class EDFClient {
 		return false;
 	}
 	
-	protected boolean copyChildInt(EDFData src, String name, JSONObject dest) throws JSONException {
-		return copyChildInt(src, name, dest, name);
-	}
-
-	protected boolean copyChildInt(EDFData src, String srcName, JSONObject dest, String destName) throws JSONException {
-		EDFData child = src.getChild(srcName);
-		if(child == null) {
-			return false;
-		}
-		
-		dest.put(destName, child.getInteger());
-		return true;
-	}
-
 	public void close() throws ProviderException {
 		try {
 			getSession().logout();
