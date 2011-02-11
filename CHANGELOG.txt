@@ -1,3 +1,13 @@
+Version 0.7 (11/02/2011)
+------------------------
+
+- Added annotations to /message
+
+Version 0.6f (01/02/2011)
+------------------------
+
+- Added inReplyToHierarchy, replyToBy to /message
+
 Version 0.6e (27/01/2011)
 ------------------------
 
