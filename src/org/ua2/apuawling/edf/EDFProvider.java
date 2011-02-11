@@ -122,7 +122,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 			int unread = getChildInt(child, "unread");
 			if((!subscribedOnly || subtype > 0) && (!unreadOnly || unread > 0)) {
 				JSONObject folder = new JSONObject();
-				copyChildStr(child, "name", folder, "folder");
+				copyChild(child, "name", folder, "folder");
 				folder.put("count", count);
 				folder.put("unread", unread);
 				folder.put("subscribed", subtype > 0);
@@ -147,6 +147,28 @@ public class EDFProvider extends EDFClient implements IProvider {
 		return dest;
 	}
 	
+	private interface ICopyProcessor {
+		String getSrcName();
+		String getDestName();
+		JSONObject process(EDFData child) throws JSONException;
+	}
+	
+	private void copyChildren(EDFData src, JSONObject dest, ICopyProcessor processor) throws JSONException {
+		List<EDFData> inReplyTos = src.getChildren(processor.getSrcName());
+		if(inReplyTos != null && inReplyTos.size() > 0) {
+			JSONArray items = new JSONArray();
+			for(EDFData inReplyTo : inReplyTos) {
+				JSONObject item = processor.process(inReplyTo);
+				if(item != null) {
+					items.put(item);
+				}
+			}
+			if(items.length() > 0) {
+				dest.put(processor.getDestName(), items);
+			}
+		}
+	}
+	
 	private JSONObject createMessage(EDFData src) throws JSONException {
 		JSONObject dest = new JSONObject();
 
@@ -154,33 +176,91 @@ public class EDFProvider extends EDFClient implements IProvider {
 		if(value instanceof Integer) {
 			dest.put("id", src.getInteger());
 		} else {
-			copyChildInt(src, "messageid", dest, "id");
+			copyChild(src, "messageid", dest, "id");
 		}
 
-		copyChildStr(src, "foldername", dest, "folder");
-		copyChildInt(src, "date", dest, "epoch");
-		copyChildStr(src, "fromname", dest, "from");
-		copyChildStr(src, "toname", dest, "to");
-		copyChildStr(src, "subject", dest);
+		copyChild(src, "foldername", dest, "folder");
+		copyChild(src, "date", dest, "epoch");
+		copyChild(src, "fromname", dest, "from");
+		copyChild(src, "toname", dest, "to");
+		copyChild(src, "subject", dest);
 
 		dest.put("read", isChildBool(src, "read"));
-		copyChildInt(src, "replyto", dest, "inReplyTo");
+		copyChild(src, "replyto", dest, "inReplyTo");
 		
-		List<EDFData> replyChildren = src.getChildren("replyto");
-		if(replyChildren != null && replyChildren.size() > 0) {
-			JSONArray replyHierarchy = new JSONArray();
-			for(EDFData replyChild : replyChildren) {
-				JSONObject replyHierarchyItem = new JSONObject();
-				int replyId = replyChild.getInteger();
-				replyHierarchyItem.put("id", replyId);
-				copyChildStr(replyChild, "fromname", replyHierarchyItem, "from");
-				copyChildStr(replyChild, "foldername", replyHierarchyItem, "folder");
-				replyHierarchy.put(replyHierarchyItem);
+		copyChildren(src, dest, new ICopyProcessor() {
+			@Override
+			public String getSrcName() {
+				return "attachment";
 			}
-			dest.put("replyHierarchy", replyHierarchy);
-		}
+
+			@Override
+			public String getDestName() {
+				return "annotations";
+			}
+
+			@Override
+			public JSONObject process(EDFData child) throws JSONException {
+				if(!"text/x-ua-annotation".equals(getChildStr(child, "content-type"))) {
+					return null;
+				}
+				
+				JSONObject item = new JSONObject();
+				copyChild(child, "date", item, "epoch");
+				copyChild(child, "fromname", item, "from");
+				copyChild(child, "text", item, "body");
+				return item;
+			}
+			
+		});
 		
-		copyChildStr(src, "text", dest, "body");
+		copyChildren(src, dest, new ICopyProcessor() {
+			@Override
+			public String getSrcName() {
+				return "replyto";
+			}
+
+			@Override
+			public String getDestName() {
+				return "inReplyToHierarchy";
+			}
+
+			@Override
+			public JSONObject process(EDFData child) throws JSONException {
+				JSONObject item = new JSONObject();
+				int replyId = child.getInteger();
+				item.put("id", replyId);
+				copyChild(child, "fromname", item, "from");
+				copyChild(child, "foldername", item, "folder");
+				return item;
+			}
+			
+		});
+		
+		copyChildren(src, dest, new ICopyProcessor() {
+			@Override
+			public String getSrcName() {
+				return "replyby";
+			}
+
+			@Override
+			public String getDestName() {
+				return "replyToBy";
+			}
+
+			@Override
+			public JSONObject process(EDFData child) throws JSONException {
+				JSONObject item = new JSONObject();
+				int replyId = child.getInteger();
+				item.put("id", replyId);
+				copyChild(child, "fromname", item, "from");
+				copyChild(child, "foldername", item, "folder");
+				return item;
+			}
+			
+		});
+		
+		copyChild(src, "text", dest, "body");
 		
 		if(dest.has("body")) {
 			bodyLookup.put(dest.getInt("id"), dest.getString("body"));
@@ -430,7 +510,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 			
 			response = new JSONObject();
 			
-			copyChildStr(reply, "foldername", response, "folder");
+			copyChild(reply, "foldername", response, "folder");
 
 		} catch(Exception e) {
 			handleException("Cannot add message to " + folder, e);
@@ -453,7 +533,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 			EDFData message = reply.getChild("message");
 			if(message != null) {
 				response = createMessage(message);
-				copyChildStr(reply, "foldername", response, "folder");
+				copyChild(reply, "foldername", response, "folder");
 			} else {
 				handleException("No message in reply:\n" + reply.format(true), new ObjectNotFoundException("Cannot get message " + id));
 			}
@@ -487,8 +567,8 @@ public class EDFProvider extends EDFClient implements IProvider {
 			} catch(JSONException e) {
 			}
 
-			copyChildStr(message, "subject", request);
-			copyChildStr(message, "body", request, "text");
+			copyChild(message, "subject", request);
+			copyChild(message, "body", request, "text");
 
 			EDFData reply = sendAndRead(request);
 			
@@ -523,10 +603,10 @@ public class EDFProvider extends EDFClient implements IProvider {
 			} catch(JSONException e) {
 			}
 
-			if(!copyChildStr(message, "subject", request)) {
-				copyChildStr(parent, "subject", request);
+			if(!copyChild(message, "subject", request)) {
+				copyChild(parent, "subject", request);
 			}
-			copyChildStr(message, "body", request, "text");
+			copyChild(message, "body", request, "text");
 
 			EDFData reply = sendAndRead(request);
 
@@ -603,7 +683,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 
 			response = new JSONObject();
 		
-			copyChildStr(child, "name", response);
+			copyChild(child, "name", response);
 		} catch(Exception e) {
 			handleException("Cannot get user", e);
 		}
@@ -626,10 +706,10 @@ public class EDFProvider extends EDFClient implements IProvider {
 			List<EDFData> children = reply.getChildren("user");
 			for(EDFData child : children) {
 				JSONObject user = new JSONObject();
-				copyChildStr(child, "name", user);
+				copyChild(child, "name", user);
 				EDFData login = child.getChild("login");
 				if(login != null) {
-					copyChildInt(login, "timeon", user);
+					copyChild(login, "timeon", user);
 				}
 				response.put(user);
 			}
