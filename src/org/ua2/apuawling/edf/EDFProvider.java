@@ -317,7 +317,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 		String[] parameters = getParameters(path);
 		if(logger.isDebugEnabled()) logger.debug("Path parameters " + Utils.toString(parameters));
 		
-		if(path.startsWith("/folders")) {
+		if("GET".equals(method) && path.startsWith("/folders")) {
 			boolean subscribedOnly = false;
 			boolean unreadOnly = false;
 			boolean summary = false;
@@ -336,42 +336,35 @@ public class EDFProvider extends EDFClient implements IProvider {
 			}
 			return getFolders(subscribedOnly, unreadOnly, summary);
 
-		} else if(path.startsWith("/folder/")) {
+		} else if("POST".equals(method) && path.startsWith("/folder/")) {
 			if(parameters.length == 2) {
-				if("POST".equals(method)) {
-					String name = parameters[1];
-					return addMessage(name, data.getObject());
-					
-				} else {
-					String name = parameters[1];
-					boolean unreadOnly = false;
-					boolean full = false;
-					for(String parameter : parameters) {
-						if(name == null) {
-							name = parameter;
-						} else if(parameter.equals("unread")) {
-							unreadOnly = true;
-						} else if(parameter.equals("full")) {
-							full = true;
-						}
-					}
-					return getFolder(name, unreadOnly, full);
-					
-				}
+				String name = parameters[1];
+				return addMessage(name, data.getObject());
 				
 			} else if(parameters.length == 3) {
 				String name = parameters[1];
-				if("POST".equals(method)) {
-					if("subscribe".equals(parameters[2])) {
-						return subscribeFolder(name, true);
-					} else if("unsubscribe".equals(parameters[2])) {
-						return subscribeFolder(name, false);
-					}
+				if("subscribe".equals(parameters[2])) {
+					return subscribeFolder(name, true);
+					
+				} else if("unsubscribe".equals(parameters[2])) {
+					return subscribeFolder(name, false);
+					
 				}
-				
 			}
-			
-			throw new InvalidCommandException(path + " not supported");
+				
+		} else if("GET".equals(method) && path.startsWith("/folder/")) {
+			String name = parameters[1];
+			boolean unreadOnly = false;
+			boolean full = false;
+			for(int index = 2; index < parameters.length; index++) {
+				String parameter = parameters[index];
+				if(parameter.equals("unread")) {
+					unreadOnly = true;
+				} else if(parameter.equals("full")) {
+					full = true;
+				}
+			}
+			return getFolder(name, unreadOnly, full);
 
 		} else if(path.startsWith("/message/")) {
 			if(parameters.length >= 2) {
@@ -421,13 +414,13 @@ public class EDFProvider extends EDFClient implements IProvider {
 				throw new InvalidCommandException("Not supported " + path);
 			}
 			
-		} else if(path.equals("/system")) {
+		} else if("GET".equals(method) && path.equals("/system")) {
 			return getSystem();
 
-		} else if(path.equals("/user")) {
+		} else if("GET".equals(method) && path.equals("/user")) {
 			return getUser();
 
-		} else if(path.startsWith("/users/")) {
+		} else if("GET".equals(method) && path.startsWith("/users/")) {
 			boolean onlineOnly = false;
 			for(String parameter : parameters) {
 				if(parameter.equals("online")) {
