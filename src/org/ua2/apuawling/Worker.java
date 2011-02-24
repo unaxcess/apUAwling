@@ -258,11 +258,16 @@ public class Worker {
 			} while(line != null && line.length() > 0);
 			
 			logger.trace("Reading " + contentLength + " bytes of content...");
+			char[] chars = new char[100];
 			while(content.length() < contentLength) {
-				char[] chars = new char[100];
 				int read = reader.read(chars, 0, chars.length);
-				if(read > 0) {
+				if(read == chars.length) {
 					content.append(chars);
+				} else if(read > 0) {
+					char[] temp = new char[read];
+					System.arraycopy(chars, 0, temp, 0, read);
+					temp = chars;
+					content.append(temp);
 				}
 			}
 
