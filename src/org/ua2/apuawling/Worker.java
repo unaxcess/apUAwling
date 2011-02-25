@@ -24,6 +24,7 @@ import java.util.TreeMap;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
+import org.apache.log4j.NDC;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -154,67 +155,81 @@ public class Worker {
 			}
 		}
 		
-		String userAgent = headers.get("User-Agent");
-		
-		InetAddress proxyAddress = address;
-		if(headers.get("X-Forwarded-For") != null) {
-			try {
-				String forwardedFor = headers.get("X-Forwarded-For");
-				if(forwardedFor.length() > 0 && Character.isDigit(forwardedFor.charAt(0))) {
-					logger.info("Creating proxy address for " + forwardedFor);
-					byte[] addr = new byte[4];
-					if(Character.isDefined(forwardedFor.charAt(0))) {
-						String[] octets = forwardedFor.split("\\.");
-						for(int digit = 0; digit <= 3; digit++) {
-							int octetVal = Integer.parseInt(octets[digit]);
-							addr[digit] = (byte)octetVal;
-						}
-					}
-					proxyAddress = InetAddress.getByAddress(forwardedFor, addr);
-					logger.info("Created proxy address " + proxyAddress);
-				}
-			} catch(Exception e) {
-				logger.error("Problem with proxy address", e);
-			}
+		if(username != null) {
+			NDC.push(username);
 		}
-		
-		IProvider provider = Session.INSTANCE.getProvider(username, password, proxyAddress, userAgent);
-
-		boolean isBrowser = false;
-
-		String[] fields = request.split(" ");
-		if(fields.length == 3) {
-			String method = fields[0];
-			String path = fields[1];
-			if(path.startsWith("/browse")) {
-				isBrowser = true;
-				path = path.substring(7);
-			}
-
-			// Strip possible multiple slashes read for path split later
-	        path = path.replaceAll("/+", "/");
-
-			if(path.equals("/")) {
-				sendHelp(provider);
-			} else if(provider != null) {
+		try {
+			
+			String userAgent = headers.get("User-Agent");
+			
+			InetAddress proxyAddress = address;
+			if(headers.get("X-Forwarded-For") != null) {
 				try {
-					logger.debug("Asking provider to provide " + method + " on " + path);
-					sendContent(provider.provide(method, path, data), isBrowser);
-				} catch(InvalidLoginException e) {
-					Session.INSTANCE.removeProvider(provider);
+					String forwardedFor = headers.get("X-Forwarded-For");
+					if(forwardedFor.indexOf(",") > 0) {
+						String[] fields = forwardedFor.split(",");
+						forwardedFor = fields[fields.length - 1].trim();
+					}
+					if(forwardedFor.length() > 0 && Character.isDigit(forwardedFor.charAt(0))) {
+						logger.info("Creating proxy address for " + forwardedFor);
+						byte[] addr = new byte[4];
+						if(Character.isDefined(forwardedFor.charAt(0))) {
+							String[] octets = forwardedFor.split("\\.");
+							for(int digit = 0; digit <= 3; digit++) {
+								int octetVal = Integer.parseInt(octets[digit]);
+								addr[digit] = (byte)octetVal;
+							}
+						}
+						proxyAddress = InetAddress.getByAddress(forwardedFor, addr);
+						logger.info("Created proxy address " + proxyAddress);
+					}
+				} catch(Exception e) {
+					logger.error("Problem with proxy address", e);
+				}
+			}
+			
+			IProvider provider = Session.INSTANCE.getProvider(username, password, proxyAddress, userAgent);
+	
+			boolean isBrowser = false;
+	
+			String[] fields = request.split(" ");
+			if(fields.length == 3) {
+				String method = fields[0];
+				String path = fields[1];
+				if(path.startsWith("/browse")) {
+					isBrowser = true;
+					path = path.substring(7);
+				}
+	
+				// Strip possible multiple slashes read for path split later
+		        path = path.replaceAll("/+", "/");
+	
+				if(path.equals("/")) {
+					sendHelp(provider);
+				} else if(provider != null) {
+					try {
+						logger.debug("Asking provider to provide " + method + " on " + path);
+						sendContent(provider.provide(method, path, data), isBrowser);
+					} catch(InvalidLoginException e) {
+						Session.INSTANCE.removeProvider(provider);
+						sendAuth();
+					} catch(ObjectNotFoundException e) {
+						sendError(404, e.getMessage());
+					} catch(InvalidCommandException e) {
+						sendError(400, e.getMessage());
+					}
+				} else {
 					sendAuth();
-				} catch(ObjectNotFoundException e) {
-					sendError(404, e.getMessage());
-				} catch(InvalidCommandException e) {
-					sendError(400, e.getMessage());
 				}
 			} else {
-				sendAuth();
+				String msg = "Malformed request " + request;
+				logger.error(msg);
+				sendError(400, msg);
 			}
-		} else {
-			String msg = "Malformed request " + request;
-			logger.error(msg);
-			sendError(400, msg);
+		} finally {
+			if(username != null) {
+				NDC.pop();
+			}
 		}
 	}
 
