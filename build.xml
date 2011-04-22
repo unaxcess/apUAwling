@@ -1,32 +1,67 @@
 <project name="apUAwling" default="upload">
 
-	<property name="dist" value="../dist"/>
-	
-	<target name="jar">
+	<target name="archive">
+		<property name="dist" value="../dist"/>
+		<delete dir="${dist}" failonerror="false"/>
 		<mkdir dir="${dist}"/>
-
-		<zip destfile="${dist}/apUAwling-src.zip" basedir="../apUAwling/src"/>
-
-		<jar destfile="${dist}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf"/>
-		<jar destfile="${dist}/apUAwling.jar" basedir="bin"/>
 
 		<propertyfile file="build.properties">
 		  <entry key="buildTime" type="date" value="now" pattern="HH:mm, dd MMM yyyy"/>
 		  <entry key="buildNum" type="int" default="0" operation="+"/>
 		</propertyfile>
+
 		<property file="build.properties"/>
-		
 		<echo message="Will add properties file with build time=${buildTime}, build number=${buildNum}"/>
 
+		<zip destfile="${dist}/apUAwling-src.zip" basedir="../apUAwling/src"/>
+
+		<jar destfile="${dist}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf"/>
+
+		<jar destfile="${dist}/apUAwling.jar" basedir="bin"/>
 		<jar destfile="${dist}/apUAwling.jar" update="true" basedir="." includes="build.properties *.txt"/>
 	</target>
 	
-	<target name="upload" depends="jar">
+	<target name="upload" depends="archive">
 		<scp todir="${remoteUrl}" trust="true">
-			<fileset dir="${dist}">
+`			<fileset dir="${dist}">
 				<include name="*.jar"/>
 				<include name="*.zip"/>
 			</fileset>
 		</scp>
 	</target>
+
+	<target name="war" depends="archive">
+		<property name="war" value="../war"/>
+		<delete dir="${war}" failonerror="false"/>
+		<mkdir dir="${war}"/>
+
+		<copy todir="${war}">
+			<fileset dir="${dist}" includes="*.zip"/>
+			<fileset dir="." includes="edflive.properties"/>
+		</copy>
+
+		<mkdir dir="${war}/WEB-INF"/>
+
+		<mkdir dir="${war}/WEB-INF/lib"/>
+		<copy todir="${war}/WEB-INF/lib">
+			<fileset dir="${dist}" includes="*.jar"/>
+		</copy>
+		<copy todir="${war}/WEB-INF/lib">
+			<fileset dir="./lib" includes="commons-*.jar"/>
+			<fileset dir="./lib" includes="log4j*.jar"/>
+		</copy>
+		
+		<mkdir dir="${war}/WEB-INF/classes"/>
+		<copy todir="${war}/WEB-INF/classes">
+			<fileset dir="." includes="log4j.xml"/>
+		</copy>
+
+		<jar destfile="${war}/uaJSON.war" basedir="${war}"/>
+		<jar destfile="${war}/uaJSON.war" update="true" basedir="." includes="WEB-INF/web.xml"/>
+		
+		<copy todir="C:/apache-tomcat-7.0.11/webapps">
+			<fileset dir="${war}" includes="uaJSON.war"/>
+		</copy>
+	</target>
+	
 </project>

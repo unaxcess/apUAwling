@@ -44,6 +44,10 @@ public class EDFClient {
 		return address;
 	}
 	
+	public String getPassword() {
+		return password;
+	}
+	
 	public void disconnect() {
 		try {
 			if(session != null) {

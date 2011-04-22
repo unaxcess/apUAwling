@@ -33,7 +33,7 @@ public class Server implements Runnable {
 		config.load(new FileInputStream(filename));
 
 		if("edf".equalsIgnoreCase(config.getProperty("mode"))) {
-			Session.INSTANCE.setEDFMode(
+			Session.INSTANCE.startupEDF(
 					config.getProperty("edf.host"), Integer.parseInt(config.getProperty("edf.port")),
 					config.getProperty("edf.username"), config.getProperty("edf.password")
 			);

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<web-app xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
+	version="3.0" metadata-complete="true">
+
+	<listener>
+		<listener-class>org.ua2.apuawling.JSONServletListener</listener-class>
+	</listener>
+
+	<servlet>
+		<servlet-name>uaJSON</servlet-name>
+		<servlet-class>org.ua2.apuawling.JSONServlet</servlet-class>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>uaJSON</servlet-name>
+		<url-pattern>/*</url-pattern>
+	</servlet-mapping>
+
+</web-app>

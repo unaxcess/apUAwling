@@ -6,6 +6,7 @@ public interface IProvider {
 
 	String getUsername();
 	InetAddress getAddress();
+	String getPassword();
 	long getLastRequest();
 	void disconnect();
 

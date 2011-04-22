@@ -41,6 +41,19 @@ public class Worker {
 
 	private static final Logger logger = Logger.getLogger(Server.class);
 
+	static byte[] getAddressBytes(String addrStr) {
+		logger.info("Creating proxy address for " + addrStr);
+		byte[] addr = new byte[4];
+		if(Character.isDefined(addrStr.charAt(0))) {
+			String[] octets = addrStr.split("\\.");
+			for(int digit = 0; digit <= 3; digit++) {
+				int octetVal = Integer.parseInt(octets[digit]);
+				addr[digit] = (byte)octetVal;
+			}
+		}
+		return addr;
+	}
+	
 	public Worker(InetAddress address, InputStream input, OutputStream output) {
 		this.address = address;
 		this.reader = new BufferedReader(new InputStreamReader(input));
@@ -158,6 +171,7 @@ public class Worker {
 		if(username != null) {
 			NDC.push(username);
 		}
+
 		try {
 			
 			String userAgent = headers.get("User-Agent");
@@ -171,16 +185,7 @@ public class Worker {
 						forwardedFor = fields[fields.length - 1].trim();
 					}
 					if(forwardedFor.length() > 0 && Character.isDigit(forwardedFor.charAt(0))) {
-						logger.info("Creating proxy address for " + forwardedFor);
-						byte[] addr = new byte[4];
-						if(Character.isDefined(forwardedFor.charAt(0))) {
-							String[] octets = forwardedFor.split("\\.");
-							for(int digit = 0; digit <= 3; digit++) {
-								int octetVal = Integer.parseInt(octets[digit]);
-								addr[digit] = (byte)octetVal;
-							}
-						}
-						proxyAddress = InetAddress.getByAddress(forwardedFor, addr);
+						proxyAddress = InetAddress.getByAddress(forwardedFor, getAddressBytes(forwardedFor));
 						logger.info("Created proxy address " + proxyAddress);
 					}
 				} catch(Exception e) {

@@ -25,30 +25,47 @@ public class Session {
 	private final Map<String, IProvider> authMap = new ConcurrentHashMap<String, IProvider>();
 	private static EDFClient edfCachingClient = null;
 
-	private final int TIMEOUT_MINUTES = 10;
+	private final int TIMEOUT_MINUTES = 2;
+
+	private Housekeeper housekeeper = null;
 	
 	private static final Logger logger = Logger.getLogger(Session.class);
 	
 	public static final Session INSTANCE = new Session();
 	
-	private Session() {
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				while(true) {
+	private class Housekeeper extends Thread {
+		private boolean loop = true;
+		
+		@Override
+		public void run() {
+			while(loop) {
+				try {
+					long timestamp = System.currentTimeMillis() - TIMEOUT_MINUTES * 60 * 1000;
+					checkMap(authMap, timestamp);
+					
+					// Sleep for half the timeout
 					try {
-						long timestamp = System.currentTimeMillis() - TIMEOUT_MINUTES * 60 * 1000;
-						checkMap(authMap, timestamp);
-						
-						// Sleep for half the timeout
 						Thread.sleep(30 * 1000 * TIMEOUT_MINUTES);
-					} catch(Exception e) {
-						logger.error("Cannot check sessions", e);
-					}
+					} catch(InterruptedException e) {}
+				} catch(Exception e) {
+					logger.error("Cannot check sessions", e);
 				}
 			}
 			
-		}).start();
+			logger.info("Exit from run");
+		}
+		
+		public void shutdown() {
+			loop = false;
+			interrupt();
+		}
+	}
+	
+	private Session() {
+		logger.info("Creating session thread");
+		housekeeper = new Housekeeper();
+		housekeeper.setName("SessionThread");
+		housekeeper.start();
 	}
 	
 	private void checkMap(Map<String, IProvider> providers, long timestamp) {
@@ -75,9 +92,10 @@ public class Session {
 		}
 	}
 	
-	public void setEDFMode(String host, int port, String username, String password) {
+	public void startupEDF(String host, int port, String username, String password) {
+		logger.info("Starting in EDF mode");
+		
 		mode = Mode.EDF;
-
 		edfHost = host;
 		edfPort = port;
 		edfUsername = username;
@@ -101,6 +119,11 @@ public class Session {
 		provider = authMap.get(getMapKey(username, address, client));
 		if(logger.isTraceEnabled()) logger.trace("Provider for auth " + getMapKey(username, address, client) + " is " + provider);
 		
+		if(!provider.getPassword().equals(password)) {
+			removeProvider(provider);
+			provider = null;
+		}
+		
 		if(provider == null) {
 			if(username == null || password == null) {
 				logger.debug("Cannot create a provider if username or password is null");
@@ -120,6 +143,8 @@ public class Session {
 	}
 	
 	public void removeProvider(IProvider provider) {
+		provider.disconnect();
+		
 		String key = null;
 		for(Entry<String, IProvider> entry : authMap.entrySet()) {
 			if(entry.getValue() == provider) {
@@ -131,6 +156,23 @@ public class Session {
 		if(key != null) {
 			logger.debug("Removing auth " + key + " as provider " + provider);
 			authMap.remove(key);
+		}
+	}
+	
+	public void shutdown() {
+		for(IProvider provider : authMap.values()) {
+			logger.info("Disconnecting " + provider);
+			provider.disconnect();
+		}
+		
+		if(edfCachingClient != null) {
+			logger.info("Disconnecting EDF caching client " + edfCachingClient);
+			edfCachingClient.disconnect();
+		}
+		
+		if(housekeeper != null) {
+			logger.info("Shutting down session thread");
+			housekeeper.shutdown();
 		}
 	}
 }
