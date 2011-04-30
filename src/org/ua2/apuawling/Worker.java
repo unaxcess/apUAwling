@@ -30,6 +30,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public class Worker {
+	private String prefix;
 	private InetAddress address;
 	private BufferedReader reader;
 	private PrintStream stream;
@@ -54,7 +55,8 @@ public class Worker {
 		return addr;
 	}
 	
-	public Worker(InetAddress address, InputStream input, OutputStream output) {
+	public Worker(String prefix, InetAddress address, InputStream input, OutputStream output) {
+		this.prefix = prefix;
 		this.address = address;
 		this.reader = new BufferedReader(new InputStreamReader(input));
 		this.stream = new PrintStream(output);
@@ -201,6 +203,10 @@ public class Worker {
 			if(fields.length == 3) {
 				String method = fields[0];
 				String path = fields[1];
+				if(prefix != null && path.startsWith(prefix)) {
+					logger.info("Stripping " + prefix + " from path");
+					path = path.substring(prefix.length());
+				}
 				if(path.startsWith("/browse")) {
 					isBrowser = true;
 					path = path.substring(7);

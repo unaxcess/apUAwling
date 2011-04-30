@@ -20,7 +20,7 @@ import org.apache.log4j.Logger;
 public class Server implements Runnable {
 
 	public static final String CLIENT = "apUAwling";
-	public static final String VERSION = "0.7b";
+	public static final String VERSION = "0.7d";
 
 	private ServerSocket listener;
 	private ExecutorService service;
@@ -65,7 +65,7 @@ public class Server implements Runnable {
 						try {
 							// Create worker for conversation with client
 							logger.info("Creating request worker on " + client.getInetAddress());
-							Worker worker = new Worker(client.getInetAddress(), client.getInputStream(), client.getOutputStream());
+							Worker worker = new Worker(config.getProperty("prefix"), client.getInetAddress(), client.getInputStream(), client.getOutputStream());
 
 							worker.work();
 						} catch(IOException e) {
