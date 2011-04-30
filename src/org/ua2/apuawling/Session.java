@@ -25,7 +25,7 @@ public class Session {
 	private final Map<String, IProvider> authMap = new ConcurrentHashMap<String, IProvider>();
 	private static EDFClient edfCachingClient = null;
 
-	private final int TIMEOUT_MINUTES = 2;
+	private final int TIMEOUT_MINUTES = 30;
 
 	private Housekeeper housekeeper = null;
 	
@@ -119,7 +119,7 @@ public class Session {
 		provider = authMap.get(getMapKey(username, address, client));
 		if(logger.isTraceEnabled()) logger.trace("Provider for auth " + getMapKey(username, address, client) + " is " + provider);
 		
-		if(!provider.getPassword().equals(password)) {
+		if(provider != null && !provider.getPassword().equals(password)) {
 			removeProvider(provider);
 			provider = null;
 		}
