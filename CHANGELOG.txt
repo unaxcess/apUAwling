@@ -1,3 +1,13 @@
+Version 0.7d (29/04/2011)
+------------------------
+
+- Increased timeout
+
+Version 0.7c (10/04/2011)
+------------------------
+
+- Fiddled with EDF session lookup
+
 Version 0.7b (25/02/2011)
 ------------------------
 
