@@ -110,7 +110,7 @@ public class Session {
 	}
 	
 	public String getMapKey(String username, InetAddress address, String client) {
-		return username + "|" + address.getHostAddress() + "|" + client;
+		return username + "|" + client;
 	}
 
 	public synchronized IProvider getProvider(String username, String password, InetAddress address, String client) throws ProviderException {
