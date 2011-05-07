@@ -11,12 +11,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.ua2.apuawling.IProvider;
 import org.ua2.apuawling.InvalidCommandException;
-import org.ua2.apuawling.JSONWrapper;
 import org.ua2.apuawling.ObjectNotFoundException;
 import org.ua2.apuawling.ProviderException;
 import org.ua2.apuawling.Utils;
 import org.ua2.clientlib.UASession;
 import org.ua2.edf.EDFData;
+import org.ua2.json.JSONWrapper;
 
 public class EDFProvider extends EDFClient implements IProvider {
 

@@ -20,6 +20,7 @@ import org.apache.log4j.NDC;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.ua2.json.JSONWrapper;
 
 @SuppressWarnings("serial")
 public class JSONServlet extends HttpServlet {
