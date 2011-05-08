@@ -2,6 +2,7 @@
 
 	<target name="archive">
 		<property name="dist" value="../dist"/>
+
 		<delete dir="${dist}" failonerror="false"/>
 		<mkdir dir="${dist}"/>
 
@@ -16,6 +17,7 @@
 		<zip destfile="${dist}/apUAwling-src.zip" basedir="../apUAwling/src"/>
 
 		<jar destfile="${dist}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf"/>
+		<jar destfile="${dist}/uaJSON.jar" basedir="../uaJSON/bin"/>
 
 		<jar destfile="${dist}/apUAwling.jar" basedir="bin"/>
 		<jar destfile="${dist}/apUAwling.jar" update="true" basedir="." includes="build.properties *.txt"/>
@@ -32,6 +34,8 @@
 
 	<target name="war" depends="archive">
 		<property name="war" value="../war"/>
+		<property name="warfile" value="${war}/uaJSON.war"/>
+		
 		<delete dir="${war}" failonerror="false"/>
 		<mkdir dir="${war}"/>
 
@@ -56,11 +60,11 @@
 			<fileset dir="." includes="log4j.xml"/>
 		</copy>
 
-		<jar destfile="${war}/uaJSON.war" basedir="${war}"/>
-		<jar destfile="${war}/uaJSON.war" update="true" basedir="." includes="WEB-INF/web.xml"/>
+		<jar destfile="${warfile}" basedir="${war}"/>
+		<jar destfile="${warfile}" update="true" basedir="." includes="WEB-INF/web.xml"/>
 		
 		<copy todir="C:/apache-tomcat-7.0.11/webapps">
-			<fileset dir="${war}" includes="uaJSON.war"/>
+			<fileset dir="${war}" includes="*.war"/>
 		</copy>
 	</target>
 	

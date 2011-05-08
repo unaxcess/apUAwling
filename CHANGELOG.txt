@@ -1,3 +1,8 @@
+Version 0.7e (07/05/2011)
+------------------------
+
+- Dropped IP address from session lookup (may need to retrofit something different for announcement support later)
+
 Version 0.7d (29/04/2011)
 ------------------------
 
