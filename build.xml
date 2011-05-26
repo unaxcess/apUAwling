@@ -1,4 +1,4 @@
-<project name="apUAwling" default="upload">
+<project name="apUAwling" default="archive">
 
 	<target name="archive">
 		<property name="dist" value="../dist"/>
@@ -16,7 +16,7 @@
 
 		<zip destfile="${dist}/apUAwling-src.zip" basedir="../apUAwling/src"/>
 
-		<jar destfile="${dist}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf"/>
+		<jar destfile="${dist}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf *.txt"/>
 		<jar destfile="${dist}/uaJSON.jar" basedir="../uaJSON/bin"/>
 
 		<jar destfile="${dist}/apUAwling.jar" basedir="bin"/>
@@ -47,23 +47,25 @@
 		<mkdir dir="${war}/WEB-INF"/>
 
 		<mkdir dir="${war}/WEB-INF/lib"/>
-		<copy todir="${war}/WEB-INF/lib">
+		<copy todir="${war}/WEB-INF/lib" preservelastmodified="true">
 			<fileset dir="${dist}" includes="*.jar"/>
 		</copy>
-		<copy todir="${war}/WEB-INF/lib">
+		<copy todir="${war}/WEB-INF/lib" preservelastmodified="true">
 			<fileset dir="./lib" includes="commons-*.jar"/>
 			<fileset dir="./lib" includes="log4j*.jar"/>
 		</copy>
 		
 		<mkdir dir="${war}/WEB-INF/classes"/>
-		<copy todir="${war}/WEB-INF/classes">
+		<copy todir="${war}/WEB-INF/classes" preservelastmodified="true">
 			<fileset dir="." includes="log4j.xml"/>
 		</copy>
 
 		<jar destfile="${warfile}" basedir="${war}"/>
 		<jar destfile="${warfile}" update="true" basedir="." includes="WEB-INF/web.xml"/>
-		
-		<copy todir="C:/apache-tomcat-7.0.11/webapps">
+	</target>
+	
+	<target name="warCopy" depends="war">
+		<copy todir="C:/apache-tomcat-7.0.11/webapps" preservelastmodified="true">
 			<fileset dir="${war}" includes="*.war"/>
 		</copy>
 	</target>
