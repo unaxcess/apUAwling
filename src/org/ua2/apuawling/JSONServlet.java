@@ -26,6 +26,7 @@ import org.ua2.json.JSONWrapper;
 public class JSONServlet extends HttpServlet {
 
 	private static final String TEXT_TYPE = "text/html";
+	private static final String UTF8 = "UTF-8";
 
 	private static final Logger logger = Logger.getLogger(JSONServlet.class);
 
@@ -230,12 +231,13 @@ public class JSONServlet extends HttpServlet {
 			Date now = new Date();
 			resp.setDateHeader("Expires", now.getTime());
 
-			resp.setContentType(type);
+			resp.setContentType(type + "; charset=" + UTF8); 
+			resp.setCharacterEncoding(UTF8); 
 
 			byte[] bytes = content.getBytes();
 			resp.setContentLength(bytes.length);
 
-			resp.getOutputStream().print(content);
+			resp.getWriter().print(content);
 		}
 	}
 
