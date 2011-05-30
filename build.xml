@@ -23,8 +23,8 @@
 		<jar destfile="${dist}/apUAwling.jar" update="true" basedir="." includes="build.properties *.txt"/>
 	</target>
 	
-	<target name="upload" depends="archive">
-		<scp todir="${remoteUrl}" trust="true">
+	<target name="uploadStandaloneRemote" depends="archive">
+		<scp todir="${remoteDir}" trust="true">
 `			<fileset dir="${dist}">
 				<include name="*.jar"/>
 				<include name="*.zip"/>
@@ -64,10 +64,16 @@
 		<jar destfile="${warfile}" update="true" basedir="." includes="WEB-INF/web.xml"/>
 	</target>
 	
-	<target name="warCopy" depends="war">
+	<target name="uploadWarLocal" depends="war">
 		<copy todir="C:/apache-tomcat-7.0.11/webapps" preservelastmodified="true">
 			<fileset dir="${war}" includes="*.war"/>
 		</copy>
+	</target>
+	
+	<target name="uploadWarRemote" depends="war">
+		<scp todir="${remoteDir}" trust="true">
+			<fileset dir="${war}" includes="*.war"/>
+		</scp>
 	</target>
 	
 </project>
