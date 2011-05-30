@@ -1,3 +1,8 @@
+Version 0.7f (29/05/2011)
+------------------------
+
+- Added pseudo thread ID to GET /folder
+
 Version 0.7e (07/05/2011)
 ------------------------
 
