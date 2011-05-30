@@ -133,7 +133,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 		}
 	}
 	
-	private JSONObject createMessage(EDFData src, String folderName, int parentId) throws JSONException {
+	private JSONObject createMessage(EDFData src, String folderName, int parentId, int threadId) throws JSONException {
 		JSONObject dest = createMessage(src);
 		
 		if(folderName != null) {
@@ -172,12 +172,14 @@ public class EDFProvider extends EDFClient implements IProvider {
 	private JSONObject createMessage(EDFData src) throws JSONException {
 		JSONObject dest = new JSONObject();
 
+		int id = 0;
 		Object value = src.getValue();
 		if(value instanceof Integer) {
-			dest.put("id", src.getInteger());
+			id = src.getInteger();
 		} else {
-			copyChild(src, "messageid", dest, "id");
+			id = getChildInt(src, "messageid");
 		}
+		dest.put("id", id);
 
 		copyChild(src, "foldername", dest, "folder");
 		copyChild(src, "date", dest, "epoch");
@@ -269,7 +271,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 		return dest;
 	}
 
-	private void addMessagesToList(EDFData reply, String folderName, boolean unreadOnly, boolean full, JSONArray list) throws JSONException {
+	private void addMessagesToList(EDFData reply, String folderName, boolean unreadOnly, boolean full, JSONArray list, Map<Integer, Integer> threads) throws JSONException {
 		int parentId = 0;
 		Object value = reply.getValue();
 		if(value instanceof Integer) {
@@ -277,14 +279,29 @@ public class EDFProvider extends EDFClient implements IProvider {
 		}
 		List<EDFData> children = reply.getChildren("message");
 		for(EDFData child : children) {
+
+			int id = 0;
+			value = child.getValue();
+			if(value instanceof Integer) {
+				id = child.getInteger();
+			} else {
+				id = getChildInt(child, "messageid");
+			}
+			Integer threadId = id;
+			if(parentId > 0) {
+				threadId = threads.get(parentId);
+			}
+			threads.put(id, threadId);
+			
 			if(!unreadOnly || !isChildBool(child, "read")) {
-				JSONObject message = createMessage(child, folderName, parentId);
+				JSONObject message = createMessage(child, folderName, parentId, threadId);
+				message.put("thread", threadId);
 				if(full) {
 					message.put("body", getMessageBody(message.getInt("id")));
 				}
 				list.put(message);
 			}
-			addMessagesToList(child, folderName, unreadOnly, full, list);
+			addMessagesToList(child, folderName, unreadOnly, full, list, threads);
 		}
 	}
 
@@ -479,7 +496,7 @@ public class EDFProvider extends EDFClient implements IProvider {
 			name = getChildStr(reply, "foldername");
 
 			response = new JSONArray();
-			addMessagesToList(reply, name, unreadOnly, full, response);
+			addMessagesToList(reply, name, unreadOnly, full, response, new HashMap<Integer, Integer>());
 		} catch(Exception e) {
 			handleException("Cannot get messages in folder " + name, e);
 		}
