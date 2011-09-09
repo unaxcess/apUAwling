@@ -113,7 +113,7 @@ public class Session {
 		return username + "|" + client;
 	}
 
-	public synchronized IProvider getProvider(String username, String password, InetAddress address, String client) throws ProviderException {
+	public synchronized IProvider getProvider(String username, String password, InetAddress address, String client) throws ActionException {
 		IProvider provider = null;
 		
 		provider = authMap.get(getMapKey(username, address, client));
