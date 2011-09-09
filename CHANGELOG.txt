@@ -1,3 +1,13 @@
+Version 0.8a (28/07/2011)
+------------------------
+
+- Tweakage
+
+Version 0.8 (28/06/2011)
+------------------------
+
+- Reworked giant switch into provider actions
+
 Version 0.7f (29/05/2011)
 ------------------------
 
