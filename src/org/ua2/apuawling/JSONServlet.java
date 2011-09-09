@@ -2,11 +2,12 @@ package org.ua2.apuawling;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Properties;
 
 import javax.servlet.ServletException;
@@ -29,43 +30,6 @@ public class JSONServlet extends HttpServlet {
 	private static final String UTF8 = "UTF-8";
 
 	private static final Logger logger = Logger.getLogger(JSONServlet.class);
-
-	private void appendFile(String filename, boolean pre, StringBuilder sb) {
-		try {
-			InputStream fileStream = getClass().getClassLoader().getResourceAsStream(filename);
-			if(fileStream == null) {
-				return;
-			}
-
-			BufferedReader fileReader = new BufferedReader(new InputStreamReader(fileStream));
-
-			sb.append("<hr>\n");
-
-			if(pre) {
-				sb.append("<pre>\n");
-			}
-
-			String line = null;
-			while((line = fileReader.readLine()) != null) {
-				sb.append(line);
-				if(pre) {
-					sb.append("\n");
-				} else {
-					sb.append("<br>\n");
-				}
-			}
-
-			if(pre) {
-				sb.append("</pre>\n");
-			} else {
-				sb.append("<br>\n");
-			}
-
-			fileStream.close();
-		} catch(Exception e) {
-			logger.error("Cannot load " + filename, e);
-		}
-	}
 
 	private void sendHelp(HttpServletResponse resp) throws IOException {
 		Properties buildProps = new Properties();
@@ -97,8 +61,8 @@ public class JSONServlet extends HttpServlet {
 		 */
 		sb.append("</ul>\n");
 
-		appendFile("README.txt", false, sb);
-		appendFile("CHANGELOG.txt", true, sb);
+		Utils.appendFile("README.txt", false, sb);
+		Utils.appendFile("CHANGELOG.txt", true, sb);
 
 		sb.append("</body>\n");
 		sb.append("\n</html>");
@@ -111,8 +75,8 @@ public class JSONServlet extends HttpServlet {
 		resp.sendError(HttpServletResponse.SC_UNAUTHORIZED);
 	}
 
-	private void processRequest(HttpServletRequest req, HttpServletResponse resp, JSONWrapper data, String auth) throws ServletException, IOException, ProviderException, JSONException {
-		logger.info("Request " + req.getMethod() + " " + req.getPathInfo());
+	private void processRequest(HttpServletRequest req, HttpServletResponse resp, JSONWrapper data, String auth) throws ServletException, IOException, ActionException, JSONException {
+		logger.debug("Request " + req.getMethod() + " " + req.getPathInfo());
 
 		String method = req.getMethod();
 		String path = req.getPathInfo();
@@ -161,7 +125,7 @@ public class JSONServlet extends HttpServlet {
 						forwardedFor = fields[fields.length - 1].trim();
 					}
 					if(forwardedFor.length() > 0 && Character.isDigit(forwardedFor.charAt(0))) {
-						proxyAddress = InetAddress.getByAddress(forwardedFor, Worker.getAddressBytes(forwardedFor));
+						proxyAddress = InetAddress.getByAddress(forwardedFor, Utils.getAddressBytes(forwardedFor));
 						logger.info("Created proxy address " + proxyAddress);
 					}
 				} catch(Exception e) {
@@ -169,31 +133,45 @@ public class JSONServlet extends HttpServlet {
 				}
 			}
 
+			boolean isBrowser = false;
+			
+			List<String> parameters = new ArrayList<String>();
+			StringBuilder sb = new StringBuilder();
+			String[] fieldArray = path.split("/");
+			for(int fieldNum = 0; fieldNum < fieldArray.length; fieldNum++) {
+				String field = fieldArray[fieldNum];
+				if(fieldNum == 1 && field.equals("browse")) {
+					isBrowser = true;
+				} else if(field.trim().length() > 0) {
+					parameters.add(field);
+					sb.append("/");
+					sb.append(field);
+				}
+			}
+			
+			path = sb.toString();
+
 			IProvider provider = Session.INSTANCE.getProvider(username, password, proxyAddress, userAgent);
 
-			boolean isBrowser = false;
-
-			if(path.startsWith("/browse")) {
-				isBrowser = true;
-				path = path.substring(7);
-			}
-
-			// Strip possible multiple slashes read for path split later
-			path = path.replaceAll("/+", "/");
-
-			if(path.equals("/")) {
+			if(parameters.size() == 0) {
 				sendHelp(resp);
 			} else if(provider != null) {
 				try {
-					logger.debug("Asking provider to provide " + method + " on " + path);
-					sendContent(resp, provider.provide(method, path, data), isBrowser);
+					Action<?> action = provider.getAction(method, path);
+					if(action != null) {
+						logger.debug("Asking provider to provide " + method + " on " + path);
+						sendContent(resp, action.perform(parameters, data), isBrowser);
+					}
 				} catch(InvalidLoginException e) {
 					Session.INSTANCE.removeProvider(provider);
 					sendAuthRequired(resp);
 				} catch(ObjectNotFoundException e) {
 					sendError(resp, HttpServletResponse.SC_NOT_FOUND, e.getMessage());
-				} catch(InvalidCommandException e) {
+				} catch(InvalidActionException e) {
 					sendError(resp, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+				} catch(Exception e) {
+					logger.error("Cannot perform action", e);
+					sendError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
 				}
 			} else {
 				sendAuthRequired(resp);
@@ -223,13 +201,12 @@ public class JSONServlet extends HttpServlet {
 			resp.sendError(code, message);
 		}
 
+		resp.setHeader("Pragma", "no-cache");
+		resp.setHeader("Cache-Control", "no-cache");
+		resp.setDateHeader("Expires", new Date().getTime());
+
 		if(content != null) {
 			logger.trace("Sending content as " + type + ":\n" + content);
-
-			resp.setHeader("Pragma", "no-cache");
-			resp.setHeader("Cache-Control", "no-cache");
-			Date now = new Date();
-			resp.setDateHeader("Expires", now.getTime());
 
 			resp.setContentType(type + "; charset=" + UTF8); 
 			resp.setCharacterEncoding(UTF8); 
@@ -249,36 +226,41 @@ public class JSONServlet extends HttpServlet {
 		sendResponse(resp, HttpServletResponse.SC_OK, TEXT_TYPE, content);
 	}
 
-	private void sendContent(HttpServletResponse resp, String content, boolean isBrowser) throws IOException {
+	private void sendContent(HttpServletResponse resp, Object obj, boolean isBrowser) throws JSONException, IOException {
 		String type = TEXT_TYPE;
 		if(!isBrowser) {
 			type = "application/json";
 		}
 
-		sendResponse(resp, HttpServletResponse.SC_OK, type, content);
-	}
-
-	private void sendContent(HttpServletResponse resp, Object obj, boolean isBrowser) throws JSONException, IOException {
-		String str = "";
+		String content = "";
 
 		if(obj != null) {
+			StringBuilder sb = new StringBuilder();
 			if(isBrowser) {
+				sb.append("<html>\n");
+				sb.append("<body>\n");
+				sb.append("<pre>\n");
 				if(obj instanceof JSONObject) {
 					JSONObject json = (JSONObject)obj;
-					str = json.toString(2);
+					sb.append(json.toString(2));
 				} else if(obj instanceof JSONArray) {
 					JSONArray json = (JSONArray)obj;
-					str = json.toString(2);
+					sb.append(json.toString(2));
 				} else {
-					str = obj.toString();
+					sb.append(obj.toString());
 				}
-				str = "<html>\n<body>\n<pre>\n" + str + "\n</pre>\n</body>\n</html>";
+				sb.append("\n");
+				sb.append("</pre>\n");
+				sb.append("</body>\n");
+				sb.append("</html>\n");
+				
+				content = sb.toString();
 			} else {
-				str = obj.toString();
+				content = obj.toString();
 			}
 		}
 
-		sendContent(resp, str, isBrowser);
+		sendResponse(resp, HttpServletResponse.SC_OK, type, content);
 	}
 
 	private void processRequest(HttpServletRequest req, HttpServletResponse resp, JSONWrapper data) throws ServletException, IOException {
@@ -302,11 +284,7 @@ public class JSONServlet extends HttpServlet {
 
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-		if("/".equals(req.getPathInfo())) {
-			sendHelp(resp);
-		} else {
-			processRequest(req, resp, null);
-		}
+		processRequest(req, resp, null);
 	}
 
 	@Override

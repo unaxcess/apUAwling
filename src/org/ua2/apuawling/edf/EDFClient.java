@@ -3,8 +3,6 @@ package org.ua2.apuawling.edf;
 import java.net.InetAddress;
 
 import org.apache.log4j.Logger;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.ua2.apuawling.InvalidLoginException;
 import org.ua2.apuawling.ProviderException;
 import org.ua2.apuawling.Server;
@@ -12,7 +10,6 @@ import org.ua2.clientlib.UA;
 import org.ua2.clientlib.UASession;
 import org.ua2.clientlib.exception.NoConnectionError;
 import org.ua2.edf.EDFData;
-import org.ua2.edf.EDFTypeException;
 
 public class EDFClient {
 
@@ -124,68 +121,6 @@ public class EDFClient {
 		}
 		
 		throw new ProviderException("Cannot connect to server");
-	}
-
-	protected String getChildStr(EDFData data, String name) {
-		EDFData child = data.getChild(name);
-		if(child == null) {
-			return null;
-		}
-		return child.getString();
-	}
-
-	protected int getChildInt(EDFData data, String name) {
-		EDFData child = data.getChild(name);
-		if(child == null) {
-			return 0;
-		}
-		return child.getInteger();
-	}
-
-	protected boolean isChildBool(EDFData data, String name) {
-		EDFData child = data.getChild(name);
-		if(child == null) {
-			return false;
-		}
-		try {
-			Integer value = child.getInteger();
-			return value == 1;
-		} catch(EDFTypeException e) {
-			logger.error("Cannot get " + name + " value", e);
-			return false;
-		}
-	}
-
-	protected void copyChild(EDFData src, String name, JSONObject dest) throws JSONException {
-		copyChild(src, name, dest, name);
-	}
-	
-	protected void copyChild(EDFData src, String srcName, JSONObject dest, String destName) throws JSONException {
-		EDFData child = src.getChild(srcName);
-		if(child != null) {
-			dest.put(destName, child.getValue());
-		}
-	}
-	
-	protected boolean copyChild(JSONObject src, String name, EDFData dest) {
-		return copyChild(src, name, dest, name);
-	}
-
-	protected boolean copyChild(JSONObject src, String srcName, EDFData dest, String destName) {
-		try {
-			Object value = src.get(srcName);
-			if(value != null) {
-				if(value instanceof Integer) {
-					dest.add(destName, (Integer)value);
-				} else if(value instanceof String) {
-					dest.add(destName, (String)value);
-				}
-				return true;
-			}
-		} catch(JSONException e) {
-		}
-		
-		return false;
 	}
 	
 	public void close() throws ProviderException {
