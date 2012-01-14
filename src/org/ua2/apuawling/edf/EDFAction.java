@@ -246,7 +246,7 @@ public abstract class EDFAction<T> extends Action<T> {
 		copyChild(src, "fromname", dest, "from");
 		copyChild(src, "toname", dest, "to");
 		copyChild(src, "subject", dest);
-		copyChild(src, "msgpos", dest, "position");
+		copyChild(src, "msgpos", dest, "pos");
 
 		dest.put("read", isChildBool(src, "read"));
 		copyChild(src, "replyto", dest, "inReplyTo");
