@@ -246,7 +246,7 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		copyChild(src, "fromname", dest, "from");
 		copyChild(src, "toname", dest, "to");
 		copyChild(src, "subject", dest);
-		copyChild(src, "msgpos", dest, "pos");
+		copyChild(src, "msgpos", dest, "position");
 		copyChild(src, "threadid", dest, "thread");
 
 		dest.put("read", isChildBool(src, "read"));
@@ -406,7 +406,7 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 				if(parentId > 0) {
 					message.put("inReplyTo", parentId);
 				}
-				message.put("pos", pos);
+				message.put("position", pos);
 				message.put("thread", threadId);
 				if(full && !message.has("body")) {
 					message.put("body", getMessageBody(message.getInt("id")));
@@ -650,6 +650,35 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 
+	public EDFActionWrapper<JSONObject> saveMessages(JSONArray array, boolean type) throws ProviderException, ActionException {
+		JSONObject response = new JSONObject();
+		EDFData request = null;
+		EDFData reply = null;
+		
+		try {
+			int count = 0;
+			for(int messageNum = 0; messageNum < array.length(); messageNum++) {
+				int messageId = array.getInt(messageNum);
+				
+				request = new EDFData("request", type ? "message_mark_save" : "message_mark_unsave");
+				
+				request.add("messageid", messageId);
+				
+				reply = sendAndRead(request);
+				
+				int numMarked = getChildInt(reply, "nummarked");
+				
+				count += numMarked;
+			}
+		
+			response.put("count", count);
+		} catch(Exception e) {
+			handleException("Cannot mark messages " + array, e);
+		}
+
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
+	}
+
 	public JSONObject markFolders(JSONArray array, boolean mark) throws ProviderException, ActionException {
 		JSONObject response = new JSONObject();
 		
@@ -672,33 +701,6 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 			response.put("count", count);
 		} catch(Exception e) {
 			handleException("Cannot mark folders " + array, e);
-		}
-
-		return response;
-	}
-
-	public JSONObject saveMessages(JSONArray array, boolean type) throws ProviderException, ActionException {
-		JSONObject response = new JSONObject();
-		
-		try {
-			int count = 0;
-			for(int messageNum = 0; messageNum < array.length(); messageNum++) {
-				int messageId = array.getInt(messageNum);
-				
-				EDFData request = new EDFData("request", type ? "message_mark_save" : "message_mark_unsave");
-				
-				request.add("messageid", messageId);
-				
-				EDFData reply = sendAndRead(request);
-				
-				int numMarked = getChildInt(reply, "nummarked");
-				
-				count += numMarked;
-			}
-		
-			response.put("count", count);
-		} catch(Exception e) {
-			handleException("Cannot mark messages " + array, e);
 		}
 
 		return response;
