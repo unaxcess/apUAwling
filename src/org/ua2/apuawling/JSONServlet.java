@@ -166,6 +166,8 @@ public class JSONServlet extends HttpServlet {
 					if(action != null) {
 						logger.debug("Asking provider to provide " + method + " on " + path);
 						sendContent(resp, action.perform(parameters, data), debug);
+					} else {
+						sendError(resp, HttpServletResponse.SC_NOT_FOUND, "Cannot find action for " + path);
 					}
 				} catch(InvalidLoginException e) {
 					Session.INSTANCE.removeProvider(provider);
@@ -199,6 +201,8 @@ public class JSONServlet extends HttpServlet {
 				message = "Bad Request";
 			} else if(code == HttpServletResponse.SC_UNAUTHORIZED) {
 				message = "Unauthorized";
+			} else if(code == HttpServletResponse.SC_NOT_FOUND) {
+				message = "Not found";
 			} else if(code == HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
 				message = "Internal server error";
 			}

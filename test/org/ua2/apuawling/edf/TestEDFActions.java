@@ -32,7 +32,7 @@ public class TestEDFActions extends TestCase {
 	}
 
 	public void testFolder() {
-		Action<?> action = new GetMessagesAction(null);
+		Action<?> action = new GetFolderAction(null);
 
 		assertTrue(action.isMatch("GET", "/folder/Applications"));
 		assertTrue(action.isMatch("GET", "/folder/Applications/full"));
@@ -62,6 +62,12 @@ public class TestEDFActions extends TestCase {
 
 		assertFalse(action.isMatch("GET", "/folder/things/stuff"));
 		assertFalse(action.isMatch("GET", "/fold"));
+	}
+
+	public void testMessages() {
+		Action<?> action = new GetMessagesAction(null);
+
+		assertTrue(action.isMatch("GET", "/messages/saved"));
 	}
 	
 	public void testMessage() {
@@ -164,7 +170,7 @@ public class TestEDFActions extends TestCase {
 
 		assertTrue(provider.getAction("POST", "/folder/Abuse/subscribe") instanceof SubscribeAction);
 
-		assertTrue(provider.getAction("GET", "/folder/Abuse") instanceof GetMessagesAction);
+		assertTrue(provider.getAction("GET", "/folder/Abuse") instanceof GetFolderAction);
 		
 		assertTrue(provider.getAction("GET", "/message/123") instanceof GetMessageAction);
 		assertTrue(provider.getAction("POST", "/message/read") instanceof MarkMessageAction);

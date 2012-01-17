@@ -41,6 +41,8 @@ public class EDFProvider extends EDFClient implements IProvider {
 
 		add(new GetMessagesAction(this));
 
+		add(new GetFolderAction(this));
+
 		add(new GetMessageAction(this));
 		add(new MarkMessageAction(this));
 		add(new CatchupAction(this));

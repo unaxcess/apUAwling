@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.json.JSONArray;
 import org.ua2.apuawling.ActionException;
-import org.ua2.apuawling.ObjectNotFoundException;
 import org.ua2.apuawling.ProviderException;
 import org.ua2.edf.EDFData;
 import org.ua2.json.JSONWrapper;
@@ -13,7 +12,7 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 	
 	private enum Filter {
 		FULL,
-		UNREAD,
+		SAVED,
 		;
 		
 		public String toString() {
@@ -22,20 +21,19 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 	}
 	
 	public GetMessagesAction(EDFProvider provider) {
-		super(provider, Method.GET, "folder/" + NAME_PATTERN + "(/(" + Filter.FULL + "|" + Filter.UNREAD + ")){0,2}");
+		super(provider, Method.GET, "messages(/(" + Filter.FULL + "|" + Filter.SAVED + ")){1,2}");
 	}
 
 	@Override
 	public EDFActionWrapper<JSONArray> perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
-		String name = parameters.get(1);
 		boolean full = false;
-		boolean unreadOnly = false;
+		boolean saved = false;
 		
-		for(int parameterNum = 2; parameterNum < parameters.size(); parameterNum++) {
+		for(int parameterNum = 1; parameterNum < parameters.size(); parameterNum++) {
 			if(Filter.FULL == Filter.valueOf(parameters.get(parameterNum).toUpperCase())) {
 				full = true;
-			} else if(Filter.UNREAD == Filter.valueOf(parameters.get(parameterNum).toUpperCase())) {
-				unreadOnly = true;
+			} else if(Filter.SAVED == Filter.valueOf(parameters.get(parameterNum).toUpperCase())) {
+				saved = true;
 			}
 		}
 
@@ -44,30 +42,18 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 		EDFData reply = null;
 
 		try {
-			int id = getFolderId(name);
-			if(id == -1) {
-				throw new ObjectNotFoundException("Folder " + name + " does not exist");
-			}
-			
 			request = new EDFData("request", "message_list");
 
-			request.add("folderid", id);
-			request.add("searchtype", 1);
-			
-			if(name.equalsIgnoreCase("private")) {
-				EDFData search = new EDFData("or");
-				search.add("fromid", getUserId());
-				search.add("toid", getUserId());
-				request.add(search);
+			if(saved) {
+				request.add("saved", 1);
 			}
+			request.add("searchtype", 1);
 
 			reply = sendAndRead(request);
-			
-			name = getChildStr(reply, "foldername");
 
-			response = addMessagesToList(reply, name, unreadOnly, full);
+			response = addMessagesToList(reply, null, false, full);
 		} catch(Exception e) {
-			handleException("Cannot get messages in folder " + name, e);
+			handleException("Cannot get messages", e);
 		}
 
 		return new EDFActionWrapper<JSONArray>(response, request, reply);
