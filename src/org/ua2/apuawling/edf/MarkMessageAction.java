@@ -20,7 +20,7 @@ public class MarkMessageAction extends EDFAction<JSONObject> {
 		if(parameters.get(1).endsWith("read")) {
 			return readMessages(data.getArray(), type, false, false);
 		} else if(parameters.get(1).endsWith("save")) {
-			return readMessages(data.getArray(), type, false, false);
+			return saveMessages(data.getArray(), type);
 		}
 		
 		throw new InvalidActionException("");
