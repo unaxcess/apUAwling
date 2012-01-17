@@ -15,13 +15,15 @@ public class SystemAction extends EDFAction<JSONObject> {
 	}
 
 	@Override
-	public JSONObject perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
 		JSONObject response = null;
-		
-		try {
-			EDFData request = new EDFData("request", "system_list");
+		EDFData request = null;
+		EDFData reply = null;
 
-			EDFData reply = sendAndRead(request);
+		try {
+			request = new EDFData("request", "system_list");
+
+			reply = sendAndRead(request);
 
 			response = new JSONObject();
 			
@@ -30,6 +32,6 @@ public class SystemAction extends EDFAction<JSONObject> {
 			handleException("Cannot get system", e);
 		}
 		
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 }

@@ -21,6 +21,8 @@ import org.apache.log4j.NDC;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.ua2.apuawling.edf.EDFActionWrapper;
+import org.ua2.edf.EDFData;
 import org.ua2.json.JSONWrapper;
 
 @SuppressWarnings("serial")
@@ -28,6 +30,9 @@ public class JSONServlet extends HttpServlet {
 
 	private static final String TEXT_TYPE = "text/html";
 	private static final String UTF8 = "UTF-8";
+
+	private static final String START_TAG = "\n<pre>\n";
+	private static final String END_TAG  = "\n</pre>\n\n";
 
 	private static final Logger logger = Logger.getLogger(JSONServlet.class);
 
@@ -133,15 +138,15 @@ public class JSONServlet extends HttpServlet {
 				}
 			}
 
-			boolean isBrowser = false;
+			boolean debug = false;
 			
 			List<String> parameters = new ArrayList<String>();
 			StringBuilder sb = new StringBuilder();
 			String[] fieldArray = path.split("/");
 			for(int fieldNum = 0; fieldNum < fieldArray.length; fieldNum++) {
 				String field = fieldArray[fieldNum];
-				if(fieldNum == 1 && field.equals("browse")) {
-					isBrowser = true;
+				if(fieldNum == 1 && (field.equals("browse") || field.equals("debug"))) {
+					debug = true;
 				} else if(field.trim().length() > 0) {
 					parameters.add(field);
 					sb.append("/");
@@ -160,7 +165,7 @@ public class JSONServlet extends HttpServlet {
 					Action<?> action = provider.getAction(method, path);
 					if(action != null) {
 						logger.debug("Asking provider to provide " + method + " on " + path);
-						sendContent(resp, action.perform(parameters, data), isBrowser);
+						sendContent(resp, action.perform(parameters, data), debug);
 					}
 				} catch(InvalidLoginException e) {
 					Session.INSTANCE.removeProvider(provider);
@@ -225,10 +230,37 @@ public class JSONServlet extends HttpServlet {
 	private void sendContent(HttpServletResponse resp, String content) throws IOException {
 		sendResponse(resp, HttpServletResponse.SC_OK, TEXT_TYPE, content);
 	}
+	
+	private void append(String str, boolean debug, StringBuilder sb) {
+		if(debug) sb.append(START_TAG);
+		sb.append(str);
+		if(debug) sb.append(END_TAG);
+	}
 
-	private void sendContent(HttpServletResponse resp, Object obj, boolean isBrowser) throws JSONException, IOException {
+	private void convertObject(Object obj, boolean debug, StringBuilder sb) throws JSONException {
+		if(obj instanceof JSONObject) {
+			JSONObject json = (JSONObject)obj;
+			append(json.toString(2), debug, sb);
+			
+		} else if(obj instanceof JSONArray) {
+			JSONArray json = (JSONArray)obj;
+			append(json.toString(2), debug, sb);
+			
+		} else {
+			append(obj.toString(), debug, sb);
+		}
+	}
+	
+	private String escapeEDF(EDFData data) {
+		String dataStr = data.format(true);
+		dataStr = dataStr.replaceAll("<", "&lt;");
+		dataStr = dataStr.replaceAll(">", "&gt;");
+		return dataStr;
+	}
+	
+	private void sendContent(HttpServletResponse resp, Object obj, boolean debug) throws JSONException, IOException {
 		String type = TEXT_TYPE;
-		if(!isBrowser) {
+		if(!debug) {
 			type = "application/json";
 		}
 
@@ -236,27 +268,41 @@ public class JSONServlet extends HttpServlet {
 
 		if(obj != null) {
 			StringBuilder sb = new StringBuilder();
-			if(isBrowser) {
+			if(debug) {
 				sb.append("<html>\n");
 				sb.append("<body>\n");
-				sb.append("<pre>\n");
-				if(obj instanceof JSONObject) {
-					JSONObject json = (JSONObject)obj;
-					sb.append(json.toString(2));
-				} else if(obj instanceof JSONArray) {
-					JSONArray json = (JSONArray)obj;
-					sb.append(json.toString(2));
+				
+				if(obj instanceof EDFActionWrapper) {
+					EDFActionWrapper wrapper = (EDFActionWrapper)obj;
+					
+					sb.append("JSON:<br>\n");
+					convertObject(wrapper.getJSON(), debug, sb);
+					sb.append("<hr>\n");
+					
+					sb.append("EDF request:<br>\n");
+					append(escapeEDF(wrapper.getRequest()), debug, sb);
+
+					sb.append("EDF reply:<br>\n");
+					append(escapeEDF(wrapper.getReply()), debug, sb);
+
 				} else {
-					sb.append(obj.toString());
+					append(obj.toString(), debug, sb);
 				}
-				sb.append("\n");
-				sb.append("</pre>\n");
+				
 				sb.append("</body>\n");
 				sb.append("</html>\n");
 				
 				content = sb.toString();
+				
 			} else {
-				content = obj.toString();
+				if(obj instanceof EDFActionWrapper) {
+					EDFActionWrapper wrapper = (EDFActionWrapper)obj;
+					content = wrapper.getJSON().toString();
+					
+				} else {
+					content = obj.toString();
+					
+				}
 			}
 		}
 

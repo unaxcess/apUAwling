@@ -26,7 +26,7 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 	}
 
 	@Override
-	public JSONArray perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONArray> perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
 		String name = parameters.get(1);
 		boolean full = false;
 		boolean unreadOnly = false;
@@ -40,6 +40,8 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 		}
 
 		JSONArray response = null;
+		EDFData request = null;
+		EDFData reply = null;
 
 		try {
 			int id = getFolderId(name);
@@ -47,7 +49,7 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 				throw new ObjectNotFoundException("Folder " + name + " does not exist");
 			}
 			
-			EDFData request = new EDFData("request", "message_list");
+			request = new EDFData("request", "message_list");
 
 			request.add("folderid", id);
 			request.add("searchtype", 1);
@@ -59,7 +61,7 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 				request.add(search);
 			}
 
-			EDFData reply = sendAndRead(request);
+			reply = sendAndRead(request);
 			
 			name = getChildStr(reply, "foldername");
 
@@ -68,6 +70,6 @@ public class GetMessagesAction extends EDFAction<JSONArray> {
 			handleException("Cannot get messages in folder " + name, e);
 		}
 
-		return response;
+		return new EDFActionWrapper<JSONArray>(response, request, reply);
 	}
 }

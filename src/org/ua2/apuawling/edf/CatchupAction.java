@@ -14,7 +14,7 @@ public class CatchupAction extends EDFAction<JSONObject> {
 	}
 
 	@Override
-	public JSONObject perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
 		boolean sticky = parameters.size() == 3 && "sticky".equals(parameters.get(2));
 		return readMessages(data.getArray(), true, true, sticky);
 	}

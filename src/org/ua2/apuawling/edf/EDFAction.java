@@ -15,7 +15,7 @@ import org.ua2.apuawling.ProviderException;
 import org.ua2.edf.EDFData;
 import org.ua2.edf.EDFTypeException;
 
-public abstract class EDFAction<T> extends Action<T> {
+public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 
 	protected interface ICopyProcessor {
 		String getSrcName();
@@ -323,6 +323,38 @@ public abstract class EDFAction<T> extends Action<T> {
 			
 		});
 		
+		EDFData srcVotes = src.getChild("votes");
+		if(srcVotes != null) {
+			JSONObject destVote = new JSONObject();
+			dest.append("votes", destVote);
+			
+			copyChild(srcVotes, "votetype", destVote);
+			copyChild(srcVotes, "numvotes", destVote);
+			
+			copyChildren(srcVotes, destVote, new ICopyProcessor() {
+				@Override
+				public String getSrcName() {
+					return "vote";
+				}
+
+				@Override
+				public String getDestName() {
+					return "vote";
+				}
+
+				@Override
+				public JSONObject process(EDFData child) throws JSONException {
+					JSONObject item = new JSONObject();
+					int id = child.getInteger();
+					item.put("id", id);
+					copyChild(child, "text", item);
+					copyChild(child, "numvotes", item);
+					return item;
+				}
+				
+			});
+		}
+		
 		copyChild(src, "text", dest, "body");
 		
 		if(dest.has("body")) {
@@ -400,15 +432,17 @@ public abstract class EDFAction<T> extends Action<T> {
 		return body;
 	}
 
-	public JSONArray getFolders(boolean subscribedOnly, boolean unreadOnly, boolean summary) throws ProviderException, ActionException {
+	public EDFActionWrapper<JSONArray> getFolders(boolean subscribedOnly, boolean unreadOnly, boolean summary) throws ProviderException, ActionException {
 		JSONArray response = null;
+		EDFData request = null;
+		EDFData reply = null;
 		logger.trace("Getting folders subscribedOnly=" + subscribedOnly + " unreadOnly=" + unreadOnly + " summary=" + summary);
 		
 		try {
-			EDFData request = new EDFData("request", "folder_list");
+			request = new EDFData("request", "folder_list");
 			request.add("searchtype", 3);
 
-			EDFData reply = sendAndRead(request);
+			reply = sendAndRead(request);
 
 			response = new JSONArray();
 			addFoldersToList(reply, response, subscribedOnly, unreadOnly);
@@ -416,7 +450,7 @@ public abstract class EDFAction<T> extends Action<T> {
 			handleException("Cannot get folders", e);
 		}
 		
-		return response;
+		return new EDFActionWrapper<JSONArray>(response, request, reply);
 	}
 	
 	public JSONArray getFolder(String name, boolean unreadOnly, boolean full) throws ProviderException, ActionException {
@@ -452,11 +486,13 @@ public abstract class EDFAction<T> extends Action<T> {
 		return response;
 	}
 
-	public JSONObject subscribeFolder(String folder, boolean subscribe) throws ProviderException, ActionException {
+	public EDFActionWrapper<JSONObject> subscribeFolder(String folder, boolean subscribe) throws ProviderException, ActionException {
 		JSONObject response = null;
-		
+		EDFData request = null;
+		EDFData reply = null;
+
 		try {
-			EDFData request = new EDFData("request", subscribe ? "folder_subscribe" : "folder_unsubscribe");
+			request = new EDFData("request", subscribe ? "folder_subscribe" : "folder_unsubscribe");
 
 			int id = getFolderId(folder);
 			if(id == -1) {
@@ -464,7 +500,7 @@ public abstract class EDFAction<T> extends Action<T> {
 			}
 			request.add("folderid", id);
 			
-			EDFData reply = sendAndRead(request);
+			reply = sendAndRead(request);
 			
 			response = new JSONObject();
 			
@@ -474,19 +510,21 @@ public abstract class EDFAction<T> extends Action<T> {
 			handleException("Cannot add message to " + folder, e);
 		}
 		
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 
-	public JSONObject getMessage(int id) throws ProviderException, ActionException {
+	public EDFActionWrapper<JSONObject> getMessage(int id) throws ProviderException, ActionException {
 		JSONObject response = null;
-		
+		EDFData request = null;
+		EDFData reply = null;
+
 		try {
-			EDFData request = new EDFData("request", "message_list");
+			request = new EDFData("request", "message_list");
 
 			request.add("messageid", id);
 			request.add("markread", 0);
 
-			EDFData reply = sendAndRead(request);
+			reply = sendAndRead(request);
 
 			EDFData message = reply.getChild("message");
 			if(message != null) {
@@ -499,7 +537,7 @@ public abstract class EDFAction<T> extends Action<T> {
 			handleException("Cannot get message " + id, e);
 		}
 
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 	
 	public JSONObject addMessage(String folder, JSONObject message) throws ProviderException, ActionException {
@@ -544,7 +582,7 @@ public abstract class EDFAction<T> extends Action<T> {
 		try {
 			EDFData request = new EDFData("request", "message_add");
 
-			JSONObject parent = getMessage(id);
+			EDFActionWrapper<JSONObject> parent = getMessage(id);
 			if(parent == null) {
 				throw new ObjectNotFoundException("Message " + id + " does not exist");
 			}
@@ -562,7 +600,7 @@ public abstract class EDFAction<T> extends Action<T> {
 			}
 
 			if(!copyChild(message, "subject", request)) {
-				copyChild(parent, "subject", request);
+				copyChild(parent.getJSON(), "subject", request);
 			}
 			copyChild(message, "body", request, "text");
 
@@ -576,15 +614,17 @@ public abstract class EDFAction<T> extends Action<T> {
 		return response;
 	}
 
-	public JSONObject readMessages(JSONArray array, boolean type, boolean catchup, boolean stayCaughtUp) throws ProviderException, ActionException {
+	public EDFActionWrapper<JSONObject> readMessages(JSONArray array, boolean type, boolean catchup, boolean stayCaughtUp) throws ProviderException, ActionException {
 		JSONObject response = new JSONObject();
+		EDFData request = null;
+		EDFData reply = null;
 		
 		try {
 			int count = 0;
 			for(int messageNum = 0; messageNum < array.length(); messageNum++) {
 				int messageId = array.getInt(messageNum);
 				
-				EDFData request = new EDFData("request", type ? "message_mark_read" : "message_mark_unread");
+				request = new EDFData("request", type ? "message_mark_read" : "message_mark_unread");
 				
 				request.add("messageid", messageId);
 				if(catchup) {
@@ -594,7 +634,7 @@ public abstract class EDFAction<T> extends Action<T> {
 					}
 				}
 				
-				EDFData reply = sendAndRead(request);
+				reply = sendAndRead(request);
 				
 				int numMarked = getChildInt(reply, "nummarked");
 				
@@ -606,7 +646,7 @@ public abstract class EDFAction<T> extends Action<T> {
 			handleException("Cannot mark messages " + array, e);
 		}
 
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 
 	public JSONObject markFolders(JSONArray array, boolean mark) throws ProviderException, ActionException {

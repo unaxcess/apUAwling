@@ -14,7 +14,7 @@ public class SubscribeAction extends EDFAction<JSONObject> {
 	}
 
 	@Override
-	public JSONObject perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
 		return subscribeFolder(parameters.get(1), "subscribe".equals(parameters.get(2)));
 	}
 }

@@ -16,7 +16,7 @@ public class ReplyMessageAction extends EDFAction<JSONObject> {
 	}
 	
 	@Override
-	public JSONObject perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
 		int messageId = 0;
 		try {
 			messageId = Integer.parseInt(elements.get(1));
@@ -26,11 +26,13 @@ public class ReplyMessageAction extends EDFAction<JSONObject> {
 
 		JSONObject message = data.getObject();
 		JSONObject response = null;
-		
-		try {
-			EDFData request = new EDFData("request", "message_add");
+		EDFData request = null;
+		EDFData reply = null;
 
-			JSONObject parent = getMessage(messageId);
+		try {
+			request = new EDFData("request", "message_add");
+
+			EDFActionWrapper<JSONObject> parent = getMessage(messageId);
 			if(parent == null) {
 				throw new ObjectNotFoundException("Message " + messageId + " does not exist");
 			}
@@ -57,18 +59,18 @@ public class ReplyMessageAction extends EDFAction<JSONObject> {
 			}
 
 			if(!copyChild(message, "subject", request)) {
-				copyChild(parent, "subject", request);
+				copyChild(parent.getJSON(), "subject", request);
 			}
 			copyChild(message, "body", request, "text");
 
-			EDFData reply = sendAndRead(request);
+			reply = sendAndRead(request);
 
 			response = createMessage(reply);
 		} catch(Exception e) {
 			handleException("Cannot reply to message " + messageId, e);
 		}
 		
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 
 }

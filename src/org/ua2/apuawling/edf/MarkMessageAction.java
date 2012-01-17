@@ -15,7 +15,7 @@ public class MarkMessageAction extends EDFAction<JSONObject> {
 	}
 
 	@Override
-	public JSONObject perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
 		boolean type = !parameters.get(1).startsWith("un");
 		if(parameters.get(1).endsWith("read")) {
 			return readMessages(data.getArray(), type, false, false);

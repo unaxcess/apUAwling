@@ -16,14 +16,16 @@ public class CreateThreadAction extends EDFAction<JSONObject> {
 	}
 
 	@Override
-	public JSONObject perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
 		String folder = elements.get(1);
 
 		JSONObject message = data.getObject();
 		JSONObject response = null;
+		EDFData request = null;
+		EDFData reply = null;
 		
 		try {
-			EDFData request = new EDFData("request", "message_add");
+			request = new EDFData("request", "message_add");
 
 			int id = getFolderId(folder);
 			if(id == -1) {
@@ -44,14 +46,14 @@ public class CreateThreadAction extends EDFAction<JSONObject> {
 			copyChild(message, "subject", request);
 			copyChild(message, "body", request, "text");
 
-			EDFData reply = sendAndRead(request);
+			reply = sendAndRead(request);
 			
 			response = createMessage(reply);
 		} catch(Exception e) {
 			handleException("Cannot add message to " + folder, e);
 		}
 		
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 
 }

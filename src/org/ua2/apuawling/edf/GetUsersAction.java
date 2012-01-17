@@ -15,15 +15,17 @@ public class GetUsersAction extends EDFAction<JSONObject> {
 	}
 
 	@Override
-	public JSONObject perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
 		JSONObject response = null;
+		EDFData request = null;
+		EDFData reply = null;
 		
 		try {
-			EDFData request = new EDFData("request", "user_list");
+			request = new EDFData("request", "user_list");
 			
 			request.add("searchtype", 4);
 
-			EDFData reply = sendAndRead(request);
+			reply = sendAndRead(request);
 
 			EDFData child = reply.getChild("user");
 
@@ -34,6 +36,6 @@ public class GetUsersAction extends EDFAction<JSONObject> {
 			handleException("Cannot get user", e);
 		}
 		
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 }

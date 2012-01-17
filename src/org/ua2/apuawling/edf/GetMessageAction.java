@@ -15,7 +15,7 @@ public class GetMessageAction extends EDFAction<JSONObject> {
 	}
 	
 	@Override
-	public JSONObject perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
 		int id = 0;
 		try {
 			id = Integer.parseInt(elements.get(1));
@@ -23,12 +23,12 @@ public class GetMessageAction extends EDFAction<JSONObject> {
 			throw new ActionException("Message ID " + elements.get(1) + " must be numeric");
 		}
 
-		JSONObject response = getMessage(id);
-		if(response == null) {
+		EDFActionWrapper<JSONObject> wrapper = getMessage(id);
+		if(wrapper == null) {
 			throw new ObjectNotFoundException("Message " + id + " does not exist");
 		}
 		
-		return response;
+		return wrapper;
 	}
 
 }
