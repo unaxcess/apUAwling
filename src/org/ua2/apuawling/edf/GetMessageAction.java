@@ -15,12 +15,12 @@ public class GetMessageAction extends EDFAction<JSONObject> {
 	}
 	
 	@Override
-	public EDFActionWrapper<JSONObject> perform(List<String> elements, JSONWrapper data) throws ActionException, ProviderException {
+	public EDFActionWrapper<JSONObject> perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
 		int id = 0;
 		try {
-			id = Integer.parseInt(elements.get(1));
+			id = Integer.parseInt(parameters.get(1));
 		} catch(NumberFormatException e) {
-			throw new ActionException("Message ID " + elements.get(1) + " must be numeric");
+			throw new ActionException("Message ID " + parameters.get(1) + " must be numeric");
 		}
 
 		EDFActionWrapper<JSONObject> wrapper = getMessage(id);

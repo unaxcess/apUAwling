@@ -68,6 +68,15 @@ public class TestEDFActions extends TestCase {
 		Action<?> action = new GetMessagesAction(null);
 
 		assertTrue(action.isMatch("GET", "/messages/saved"));
+		assertFalse(action.isMatch("GET", "/messages"));
+		assertFalse(action.isMatch("GET", "/messages/other/thing"));
+	}
+	
+	public void testThread() {
+		Action<?> action = new GetThreadAction(null);
+
+		assertTrue(action.isMatch("GET", "/thread/123"));
+		assertFalse(action.isMatch("GET", "/thread/abc"));
 	}
 	
 	public void testMessage() {

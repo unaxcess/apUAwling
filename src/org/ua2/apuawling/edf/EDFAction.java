@@ -247,6 +247,7 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		copyChild(src, "toname", dest, "to");
 		copyChild(src, "subject", dest);
 		copyChild(src, "msgpos", dest, "pos");
+		copyChild(src, "threadid", dest, "thread");
 
 		dest.put("read", isChildBool(src, "read"));
 		copyChild(src, "replyto", dest, "inReplyTo");
