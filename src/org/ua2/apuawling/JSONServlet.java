@@ -81,7 +81,7 @@ public class JSONServlet extends HttpServlet {
 	}
 
 	private void processRequest(HttpServletRequest req, HttpServletResponse resp, JSONWrapper data, String auth) throws ServletException, IOException, ActionException, JSONException {
-		logger.debug("Request " + req.getMethod() + " " + req.getPathInfo());
+		logger.info("Request " + req.getMethod() + " " + req.getPathInfo() + " from " + req.getRemoteHost() + " " + req.getRemoteAddr());
 
 		String method = req.getMethod();
 		String path = req.getPathInfo();
@@ -118,9 +118,6 @@ public class JSONServlet extends HttpServlet {
 		try {
 
 			String userAgent = req.getHeader("User-Agent");
-
-			logger.info("Creating inet address from remote data " + req.getRemoteHost() + " " + req.getRemoteAddr());
-			//InetAddress proxyAddress = InetAddress.getByAddress(req.getRemoteHost(), Worker.getAddressBytes(req.getRemoteAddr()));
 			InetAddress proxyAddress = InetAddress.getByAddress(req.getRemoteHost(), new byte[4]);
 			if(req.getHeader("X-Forwarded-For") != null) {
 				try {
@@ -131,7 +128,7 @@ public class JSONServlet extends HttpServlet {
 					}
 					if(forwardedFor.length() > 0 && Character.isDigit(forwardedFor.charAt(0))) {
 						proxyAddress = InetAddress.getByAddress(forwardedFor, Utils.getAddressBytes(forwardedFor));
-						logger.info("Created proxy address " + proxyAddress);
+						logger.debug("Created proxy address " + proxyAddress);
 					}
 				} catch(Exception e) {
 					logger.error("Problem with proxy address", e);
@@ -156,7 +153,7 @@ public class JSONServlet extends HttpServlet {
 			
 			path = sb.toString();
 
-			IProvider provider = Session.INSTANCE.getProvider(username, password, proxyAddress, userAgent);
+			IProvider provider = Session.getInstance().getProvider(username, password, proxyAddress, userAgent);
 
 			if(parameters.size() == 0) {
 				sendHelp(resp);
@@ -170,7 +167,7 @@ public class JSONServlet extends HttpServlet {
 						sendError(resp, HttpServletResponse.SC_NOT_FOUND, "Cannot find action for " + path);
 					}
 				} catch(InvalidLoginException e) {
-					Session.INSTANCE.removeProvider(provider);
+					Session.getInstance().removeProvider(provider);
 					sendAuthRequired(resp);
 				} catch(ObjectNotFoundException e) {
 					sendError(resp, HttpServletResponse.SC_NOT_FOUND, e.getMessage());

@@ -15,6 +15,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 public class Server implements Runnable {
@@ -30,12 +31,15 @@ public class Server implements Runnable {
 	private static final Logger logger = Logger.getLogger(Server.class);
 
 	public Server(String filename) throws IOException {
+		Logger.getRootLogger().setLevel(Level.TRACE);
+		
 		config.load(new FileInputStream(filename));
 
 		if("edf".equalsIgnoreCase(config.getProperty("mode"))) {
-			Session.INSTANCE.startupEDF(
+			Session.startEDF(
 					config.getProperty("edf.host"), Integer.parseInt(config.getProperty("edf.port")),
-					config.getProperty("edf.username"), config.getProperty("edf.password")
+					config.getProperty("edf.username"), config.getProperty("edf.password"),
+					null
 			);
 		}
 		

@@ -1,8 +1,9 @@
-<project name="apUAwling" default="archive">
+<project name="apUAwling" default="war">
 
-	<target name="archive">
-		<property name="dist" value="../dist"/>
+	<property name="dist" value="./dist"/>
+	<property name="warfile" value="../uaJSON.war"/>
 
+	<target name="war">
 		<delete dir="${dist}" failonerror="false"/>
 		<mkdir dir="${dist}"/>
 
@@ -14,53 +15,32 @@
 		<property file="build.properties"/>
 		<echo message="Will add properties file with build time=${buildTime}, build number=${buildNum}"/>
 
-		<zip destfile="${dist}/apUAwling-src.zip" basedir="../apUAwling/src"/>
-
-		<jar destfile="${dist}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf *.txt"/>
-		<jar destfile="${dist}/uaJSON.jar" basedir="../uaJSON/bin"/>
-
-		<jar destfile="${dist}/apUAwling.jar" basedir="bin"/>
-		<jar destfile="${dist}/apUAwling.jar" update="true" basedir="." includes="build.properties *.txt"/>
-	</target>
-	
-	<target name="uploadStandaloneRemote" depends="archive">
-		<scp todir="${remoteDir}" trust="true">
-`			<fileset dir="${dist}">
-				<include name="*.jar"/>
-				<include name="*.zip"/>
-			</fileset>
-		</scp>
-	</target>
-
-	<target name="war" depends="archive">
-		<property name="war" value="../war"/>
-		<property name="warfile" value="${war}/uaJSON.war"/>
-		
-		<delete dir="${war}" failonerror="false"/>
-		<mkdir dir="${war}"/>
-
-		<copy todir="${war}">
-			<fileset dir="${dist}" includes="*.zip"/>
+		<copy todir="${dist}" preservelastmodified="true">
 			<fileset dir="." includes="edflive.properties"/>
 		</copy>
 
-		<mkdir dir="${war}/WEB-INF"/>
+		<property name="webdir" value="${dist}/WEB-INF"/>
+		
+		<mkdir dir="${webdir}"/>
 
-		<mkdir dir="${war}/WEB-INF/lib"/>
-		<copy todir="${war}/WEB-INF/lib" preservelastmodified="true">
-			<fileset dir="${dist}" includes="*.jar"/>
+		<zip destfile="${webdir}/apUAwling-src.zip" basedir="./src"/>
+				
+		<mkdir dir="${webdir}/classes"/>
+		<copy todir="${webdir}/classes" preservelastmodified="true">
+			<fileset dir="./bin"/>
+			<fileset dir="." includes="build.properties *.txt"/>
 		</copy>
-		<copy todir="${war}/WEB-INF/lib" preservelastmodified="true">
+
+		<property name="libdir" value="${dist}/WEB-INF/lib"/>
+		<mkdir dir="${libdir}"/>
+		<copy todir="${libdir}" preservelastmodified="true">
 			<fileset dir="./lib" includes="commons-*.jar"/>
 			<fileset dir="./lib" includes="log4j*.jar"/>
 		</copy>
-		
-		<mkdir dir="${war}/WEB-INF/classes"/>
-		<copy todir="${war}/WEB-INF/classes" preservelastmodified="true">
-			<fileset dir="." includes="log4j.xml"/>
-		</copy>
+		<jar destfile="${libdir}/JEDF.jar" basedir="../JEDF/bin" excludes="*.edf *.txt"/>
+		<jar destfile="${libdir}/uaJSON.jar" basedir="../uaJSON/bin"/>
 
-		<jar destfile="${warfile}" basedir="${war}"/>
+		<jar destfile="${warfile}" basedir="${dist}"/>
 		<jar destfile="${warfile}" update="true" basedir="." includes="WEB-INF/web.xml"/>
 	</target>
 	
@@ -72,7 +52,7 @@
 	
 	<target name="uploadWarRemote" depends="war">
 		<scp todir="${remoteDir}" trust="true">
-			<fileset dir="${war}" includes="*.war"/>
+			<fileset file="${warfile}"/>
 		</scp>
 	</target>
 	

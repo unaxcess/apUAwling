@@ -75,11 +75,11 @@ public class EDFClient {
 		}
 
 		try {
-			logger.debug("Creating UA session");
+			logger.info("Creating UA session");
 			UA ua = new UA();
 			session = new UASession(ua);
 
-			logger.debug("Connecting to " + host + " on " + port);
+			logger.info("Connecting to " + host + " on " + port);
 			session.connect(host, port);
 
 			if(username != null) {

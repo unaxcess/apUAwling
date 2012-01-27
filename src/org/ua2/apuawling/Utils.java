@@ -21,7 +21,7 @@ public class Utils {
 
 
 	public static byte[] getAddressBytes(String addrStr) {
-		logger.info("Creating proxy address for " + addrStr);
+		logger.debug("Creating proxy address for " + addrStr);
 		byte[] addr = new byte[4];
 		if(Character.isDefined(addrStr.charAt(0))) {
 			String[] octets = addrStr.split("\\.");

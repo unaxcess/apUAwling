@@ -4,7 +4,6 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.log4j.Logger;
 import org.ua2.apuawling.Action;
 import org.ua2.apuawling.IProvider;
 import org.ua2.apuawling.ProviderException;
@@ -15,8 +14,6 @@ public class EDFProvider extends EDFClient implements IProvider {
 	private long lastRequest = 0;
 
 	private List<Action<?>> actions = new ArrayList<Action<?>>();
-
-	private static final Logger logger = Logger.getLogger(EDFProvider.class);
 
 	public EDFProvider(String host, int port, String username, String password, InetAddress address, String client) {
 		super(host, port, username, password, address, client);

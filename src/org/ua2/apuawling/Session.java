@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.log4j.Logger;
 import org.ua2.apuawling.edf.EDFClient;
@@ -17,27 +18,29 @@ public class Session {
 
 	private Mode mode = Mode.EDF;
 
-	private static String edfHost;
-	private static int edfPort;
-	private static String edfUsername;
-	private static String edfPassword;
+	private String edfHost;
+	private int edfPort;
+	private String edfUsername;
+	private String edfPassword;
 
 	private final Map<String, IProvider> authMap = new ConcurrentHashMap<String, IProvider>();
-	private static EDFClient edfCachingClient = null;
+	private EDFClient edfCachingClient = null;
 
 	private final int TIMEOUT_MINUTES = 30;
 
 	private Housekeeper housekeeper = null;
 	
+	private static Session INSTANCE = null;
+	
 	private static final Logger logger = Logger.getLogger(Session.class);
 	
-	public static final Session INSTANCE = new Session();
-	
-	private class Housekeeper extends Thread {
+	private class Housekeeper implements Runnable {
 		private boolean loop = true;
 		
 		@Override
 		public void run() {
+			logger.info("Starting housekeeping");
+			
 			while(loop) {
 				try {
 					long timestamp = System.currentTimeMillis() - TIMEOUT_MINUTES * 60 * 1000;
@@ -52,22 +55,14 @@ public class Session {
 				}
 			}
 			
-			logger.info("Exit from run");
+			logger.info("Stopping housekeeping");
 		}
 		
 		public void shutdown() {
 			loop = false;
-			interrupt();
 		}
 	}
-	
-	private Session() {
-		logger.info("Creating session thread");
-		housekeeper = new Housekeeper();
-		housekeeper.setName("SessionThread");
-		housekeeper.start();
-	}
-	
+
 	private void checkMap(Map<String, IProvider> providers, long timestamp) {
 		Set<String> keys = new HashSet<String>();
 		
@@ -92,9 +87,7 @@ public class Session {
 		}
 	}
 	
-	public void startupEDF(String host, int port, String username, String password) {
-		logger.info("Starting in EDF mode");
-		
+	private Session(String host, int port, String username, String password) {
 		mode = Mode.EDF;
 		edfHost = host;
 		edfPort = port;
@@ -102,11 +95,34 @@ public class Session {
 		edfPassword = password;
 		
 		if(edfUsername != null) {
-			logger.debug("Creating default EDF provider");
+			logger.info("Creating default EDF provider");
 			edfCachingClient = new EDFClient(edfHost, edfPort, edfUsername, edfPassword, null, Server.CLIENT + " v" + Server.VERSION) {
 			
 			};
 		}
+		
+		logger.info("Creating housekeeper");
+		housekeeper = new Housekeeper();
+	}
+	
+	public static Session getInstance() {
+		return INSTANCE;
+	}
+	
+	public static Session startEDF(String host, int port, String username, String password, ExecutorService executor) {
+		logger.info("Starting in EDF mode");
+
+		INSTANCE = new Session(host, port, username, password);
+		
+		if(executor != null) {
+			logger.info("Submitting housekeeper to executor");
+			executor.submit(INSTANCE.housekeeper);
+		} else {
+			Thread thread = new Thread(INSTANCE.housekeeper, "Housekeeper");
+			thread.start();
+		}
+		
+		return INSTANCE;
 	}
 	
 	public String getMapKey(String username, InetAddress address, String client) {
@@ -131,7 +147,7 @@ public class Session {
 			}
 			
 			if(Mode.EDF == mode) {
-				logger.debug("Creating EDF provider for " + username + " from " + address + " using " + client);
+				logger.info("Creating EDF provider for " + username + " from " + address + " using " + client);
 				provider = new EDFProvider(edfHost, edfPort, username, password, address, client);
 			}
 
