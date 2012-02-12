@@ -11,14 +11,15 @@ import org.ua2.json.JSONWrapper;
 public class MarkMessageAction extends EDFAction<JSONObject> {
 
 	public MarkMessageAction(EDFProvider provider) {
-		super(provider, Method.POST, "message/(read|unread|save|unsave)");
+		super(provider, Method.POST, "message/(read(/sticky)?|unread|save|unsave)");
 	}
 
 	@Override
 	public EDFActionWrapper<JSONObject> perform(List<String> parameters, JSONWrapper data) throws ActionException, ProviderException {
 		boolean type = !parameters.get(1).startsWith("un");
 		if(parameters.get(1).endsWith("read")) {
-			return readMessages(data.getArray(), type, false, false);
+			boolean sticky = parameters.size() == 3 && parameters.get(3).equals("sticky");
+			return readMessages(data.getArray(), type, sticky, sticky);
 		} else if(parameters.get(1).endsWith("save")) {
 			return saveMessages(data.getArray(), type);
 		}
