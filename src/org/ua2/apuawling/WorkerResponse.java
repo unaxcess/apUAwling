@@ -56,8 +56,8 @@ public class WorkerResponse implements HttpServletResponse {
 	}
 	
 	private void flush(PrintWriter flusher, String msg, boolean appendCRLF) {
-		logger.trace("Sending " + msg);
 		if(msg != null) {
+			logger.trace("Sending " + msg);
 			flusher.print(msg);
 		}
 		
@@ -248,7 +248,7 @@ public class WorkerResponse implements HttpServletResponse {
 		this.status = status;
 		this.message = message;
 
-		flushBuffer(); 
+		//flushBuffer(); 
 	}
 
 	@Override

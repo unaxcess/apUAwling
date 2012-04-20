@@ -187,23 +187,25 @@ public class JSONServlet extends HttpServlet {
 		}
 	}
 
-	private void sendResponse(HttpServletResponse resp, int code, String type, String content) throws IOException {
+	private void sendResponse(HttpServletResponse resp, int code, String message, String type, String content) throws IOException {
 		logger.trace("Sending response " + code);
 
 		if(code == HttpServletResponse.SC_OK) {
 			resp.setStatus(code);
-		} else {
-			String message = "Unknown";
-			if(code == HttpServletResponse.SC_BAD_REQUEST) {
-				message = "Bad Request";
-			} else if(code == HttpServletResponse.SC_UNAUTHORIZED) {
-				message = "Unauthorized";
-			} else if(code == HttpServletResponse.SC_NOT_FOUND) {
-				message = "Not found";
-			} else if(code == HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
-				message = "Internal server error";
+		} else { 
+			if(message == null) {
+				message = "Unknown";
+				if(code == HttpServletResponse.SC_BAD_REQUEST) {
+					message = "Bad Request";
+				} else if(code == HttpServletResponse.SC_UNAUTHORIZED) {
+					message = "Unauthorized";
+				} else if(code == HttpServletResponse.SC_NOT_FOUND) {
+					message = "Not found";
+				} else if(code == HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+					message = "Internal server error";
+				}
 			}
-
+			
 			resp.sendError(code, message);
 		}
 
@@ -224,12 +226,12 @@ public class JSONServlet extends HttpServlet {
 		}
 	}
 
-	private void sendError(HttpServletResponse resp, int code, String content) throws IOException {
-		sendResponse(resp, code, TEXT_TYPE, content);
+	private void sendError(HttpServletResponse resp, int code, String message) throws IOException {
+		sendResponse(resp, code, message, TEXT_TYPE, "An error has occurred. Check the status message for details");
 	}
 
 	private void sendContent(HttpServletResponse resp, String content) throws IOException {
-		sendResponse(resp, HttpServletResponse.SC_OK, TEXT_TYPE, content);
+		sendResponse(resp, HttpServletResponse.SC_OK, null, TEXT_TYPE, content);
 	}
 	
 	private void append(String str, boolean debug, StringBuilder sb) {
@@ -307,7 +309,7 @@ public class JSONServlet extends HttpServlet {
 			}
 		}
 
-		sendResponse(resp, HttpServletResponse.SC_OK, type, content);
+		sendResponse(resp, HttpServletResponse.SC_OK, null, type, content);
 	}
 
 	private void processRequest(HttpServletRequest req, HttpServletResponse resp, JSONWrapper data) throws ServletException, IOException {

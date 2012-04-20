@@ -31,7 +31,7 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 
 	private static final Logger logger = Logger.getLogger(EDFAction.class);
 	
-	public EDFAction(EDFProvider provider, Method method, String path) {
+	protected EDFAction(EDFProvider provider, Method method, String path) {
 		super(method, path);
 		
 		this.provider = provider;
@@ -120,99 +120,6 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		return false;
 	}
 	
-	public int getUserId() throws ProviderException {
-		return provider.getSession().getUserId();
-	}
-
-	private void addFoldersToLookup(EDFData data) throws JSONException {
-		List<EDFData> children = data.getChildren("folder");
-		for(EDFData child : children) {
-			String name = child.getChild("name").getString();
-			int id = child.getInteger();
-			logger.debug("Adding " + name + " -> " + id + " to folder lookup");
-			folderLookup.put(name.toLowerCase(), id);
-			addFoldersToLookup(child);
-		}
-	}
-	
-	private void initFolderLookup() throws ProviderException, ActionException {
-		if(folderLookup == null) {
-			folderLookup = new HashMap<String, Integer>();
-
-			try {
-				EDFData request = new EDFData("request", "folder_list");
-				request.add("searchtype", 2);
-
-				EDFData reply = sendAndRead(request);
-
-				addFoldersToLookup(reply);
-			} catch(Exception e) {
-				folderLookup = null;
-				handleException("Cannot get folder lookup", e);
-			}
-		}
-	}
-
-	int getFolderId(String name) throws ProviderException, ActionException {
-		initFolderLookup();
-		
-		Integer id = folderLookup.get(name.toLowerCase());
-		if(id == null) {
-			return -1;
-		}
-		
-		return id;
-	}
-
-	int getUserId(String name) throws ProviderException, ActionException {
-		if(userLookup == null) {
-			userLookup = new HashMap<String, Integer>();
-
-			try {
-				EDFData request = new EDFData("request", "user_list");
-
-				EDFData reply = sendAndRead(request);
-
-				List<EDFData> children = reply.getChildren("user");
-				for(EDFData child : children) {
-					String userName = child.getChild("name").getString();
-					int id = child.getInteger();
-					logger.debug("Adding " + userName + "-> " + id + " to user lookup");
-					userLookup.put(userName.toLowerCase(), id);
-				}
-			} catch(Exception e) {
-				userLookup = null;
-				handleException("Cannot get user " + name, e);
-			}
-		}
-
-		Integer id = userLookup.get(name.toLowerCase());
-		if(id == null) {
-			return -1;
-		}
-		
-		return id;
-	}
-	
-	private void addFoldersToList(EDFData data, JSONArray list, boolean subscribedOnly, boolean unreadOnly) throws JSONException {
-		List<EDFData> children = data.getChildren("folder");
-		for(EDFData child : children) {
-			int subtype = getChildInt(child, "subtype");
-			int count = getChildInt(child, "nummsgs");
-			int unread = getChildInt(child, "unread");
-			if((!subscribedOnly || subtype > 0) && (!unreadOnly || unread > 0)) {
-				JSONObject folder = new JSONObject();
-				copyChild(child, "name", folder, "folder");
-				folder.put("count", count);
-				folder.put("unread", unread);
-				folder.put("subscribed", subtype > 0);
-				list.put(folder);
-			}
-
-			addFoldersToList(child, list, subscribedOnly, unreadOnly);
-		}
-	}
-	
 	private void copyChildren(EDFData src, JSONObject dest, ICopyProcessor processor) throws JSONException {
 		List<EDFData> inReplyTos = src.getChildren(processor.getSrcName());
 		if(inReplyTos != null && inReplyTos.size() > 0) {
@@ -227,6 +134,101 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 				dest.put(processor.getDestName(), items);
 			}
 		}
+	}
+	
+	protected JSONArray addMessagesToList(EDFData reply, String folderName, boolean unreadOnly, boolean full) throws JSONException {
+		JSONArray response = new JSONArray();
+		addMessagesToList(reply, folderName, unreadOnly, full, 0, response, new HashMap<Integer, Integer>());
+		return response;
+	}
+
+	private int addMessagesToList(EDFData reply, String folderName, boolean unreadOnly, boolean full, int pos, JSONArray list, Map<Integer, Integer> threads) throws JSONException {
+		int parentId = 0;
+		Object value = reply.getValue();
+		if(value instanceof Integer) {
+			parentId = reply.getInteger();
+		}
+		List<EDFData> children = reply.getChildren("message");
+		for(EDFData child : children) {
+
+			int id = 0;
+			value = child.getValue();
+			if(value instanceof Integer) {
+				id = child.getInteger();
+			} else {
+				id = getChildInt(child, "messageid");
+			}
+			Integer threadId = getChildInt(child, "threadid");
+			if(threadId == 0) {
+				threadId = id;
+				if(parentId > 0) {
+					threadId = threads.get(parentId);
+				}
+			}
+			threads.put(id, threadId);
+			
+			if(!unreadOnly || !isChildBool(child, "read")) {
+				pos++;
+				
+				JSONObject message = createMessage(child);
+				if(folderName != null) {
+					message.put("folder", folderName);
+				}
+				if(parentId > 0) {
+					message.put("inReplyTo", parentId);
+				}
+				message.put("position", pos);
+				message.put("thread", threadId);
+				if(full && !message.has("body")) {
+					message.put("body", getMessageBody(message.getInt("id")));
+				}
+				
+				list.put(message);
+			}
+			pos = addMessagesToList(child, folderName, unreadOnly, full, pos, list, threads);
+		}
+		
+		return pos;
+	}
+
+	protected String getMessageBody(int id) {
+		String body = bodyLookup.get(id);
+		if(body == null) {
+			try {
+				getMessage(id);
+				body = bodyLookup.get(id);
+			} catch(Exception e) {
+				logger.error("Cannot get body of message " + id, e);
+			}
+		}
+		return body;
+	}
+
+	protected EDFActionWrapper<JSONObject> getMessage(int id) throws ProviderException, ActionException {
+		JSONObject response = null;
+		EDFData request = null;
+		EDFData reply = null;
+
+		try {
+			request = new EDFData("request", "message_list");
+
+			request.add("messageid", id);
+			request.add("markread", 0);
+
+			reply = sendAndRead(request);
+
+			EDFData message = reply.getChild("message");
+			if(message != null) {
+				response = createMessage(message);
+				copyChild(reply, "foldername", response, "folder");
+			} else {
+				handleException("No message in reply:\n" + reply.format(true), new ObjectNotFoundException("Cannot get message " + id));
+			}
+		} catch(Exception e) {
+			handleException("Cannot get message " + id, e);
+		}
+
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 	
 	protected JSONObject createMessage(EDFData src) throws JSONException {
@@ -364,76 +366,78 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 
 		return dest;
 	}
-	
-	protected JSONArray addMessagesToList(EDFData reply, String folderName, boolean unreadOnly, boolean full) throws JSONException {
-		JSONArray response = new JSONArray();
-		addMessagesToList(reply, folderName, unreadOnly, full, 0, response, new HashMap<Integer, Integer>());
-		return response;
-	}
 
-	private int addMessagesToList(EDFData reply, String folderName, boolean unreadOnly, boolean full, int pos, JSONArray list, Map<Integer, Integer> threads) throws JSONException {
-		int parentId = 0;
-		Object value = reply.getValue();
-		if(value instanceof Integer) {
-			parentId = reply.getInteger();
-		}
-		List<EDFData> children = reply.getChildren("message");
-		for(EDFData child : children) {
-
-			int id = 0;
-			value = child.getValue();
-			if(value instanceof Integer) {
-				id = child.getInteger();
-			} else {
-				id = getChildInt(child, "messageid");
-			}
-			Integer threadId = getChildInt(child, "threadid");
-			if(threadId == 0) {
-				threadId = id;
-				if(parentId > 0) {
-					threadId = threads.get(parentId);
-				}
-			}
-			threads.put(id, threadId);
-			
-			if(!unreadOnly || !isChildBool(child, "read")) {
-				pos++;
-				
-				JSONObject message = createMessage(child);
-				if(folderName != null) {
-					message.put("folder", folderName);
-				}
-				if(parentId > 0) {
-					message.put("inReplyTo", parentId);
-				}
-				message.put("position", pos);
-				message.put("thread", threadId);
-				if(full && !message.has("body")) {
-					message.put("body", getMessageBody(message.getInt("id")));
-				}
-				
-				list.put(message);
-			}
-			pos = addMessagesToList(child, folderName, unreadOnly, full, pos, list, threads);
+	protected int getFolderId(String name) throws ProviderException, ActionException {
+		initFolderLookup();
+		
+		Integer id = folderLookup.get(name.toLowerCase());
+		if(id == null) {
+			return -1;
 		}
 		
-		return pos;
+		return id;
 	}
+	
+	private void initFolderLookup() throws ProviderException, ActionException {
+		if(folderLookup == null) {
+			folderLookup = new HashMap<String, Integer>();
 
-	String getMessageBody(int id) {
-		String body = bodyLookup.get(id);
-		if(body == null) {
 			try {
-				getMessage(id);
-				body = bodyLookup.get(id);
+				EDFData request = new EDFData("request", "folder_list");
+				request.add("searchtype", 2);
+
+				EDFData reply = sendAndRead(request);
+
+				addFoldersToLookup(reply);
 			} catch(Exception e) {
-				logger.error("Cannot get body of message " + id, e);
+				folderLookup = null;
+				handleException("Cannot get folder lookup", e);
 			}
 		}
-		return body;
 	}
 
-	public EDFActionWrapper<JSONArray> getFolders(boolean subscribedOnly, boolean unreadOnly, boolean summary) throws ProviderException, ActionException {
+	private void addFoldersToLookup(EDFData data) throws JSONException {
+		List<EDFData> children = data.getChildren("folder");
+		for(EDFData child : children) {
+			String name = child.getChild("name").getString();
+			int id = child.getInteger();
+			logger.debug("Adding " + name + " -> " + id + " to folder lookup");
+			folderLookup.put(name.toLowerCase(), id);
+			addFoldersToLookup(child);
+		}
+	}
+
+	protected int getUserId(String name) throws ProviderException, ActionException {
+		if(userLookup == null) {
+			userLookup = new HashMap<String, Integer>();
+
+			try {
+				EDFData request = new EDFData("request", "user_list");
+
+				EDFData reply = sendAndRead(request);
+
+				List<EDFData> children = reply.getChildren("user");
+				for(EDFData child : children) {
+					String userName = child.getChild("name").getString();
+					int id = child.getInteger();
+					logger.debug("Adding " + userName + "-> " + id + " to user lookup");
+					userLookup.put(userName.toLowerCase(), id);
+				}
+			} catch(Exception e) {
+				userLookup = null;
+				handleException("Cannot get user " + name, e);
+			}
+		}
+
+		Integer id = userLookup.get(name.toLowerCase());
+		if(id == null) {
+			return -1;
+		}
+		
+		return id;
+	}
+
+	protected EDFActionWrapper<JSONArray> getFolders(boolean subscribedOnly, boolean unreadOnly, boolean summary) throws ProviderException, ActionException {
 		JSONArray response = null;
 		EDFData request = null;
 		EDFData reply = null;
@@ -453,169 +457,31 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		
 		return new EDFActionWrapper<JSONArray>(response, request, reply);
 	}
-	
-	public JSONArray getFolder(String name, boolean unreadOnly, boolean full) throws ProviderException, ActionException {
-		JSONArray response = null;
-		
-		try {
-			int id = getFolderId(name);
-			if(id == -1) {
-				throw new ObjectNotFoundException("Folder " + name + " does not exist");
-			}
-			
-			EDFData request = new EDFData("request", "message_list");
 
-			request.add("folderid", id);
-			request.add("searchtype", 1);
-			
-			if(name.equalsIgnoreCase("private")) {
-				EDFData search = new EDFData("or");
-				search.add("fromid", getUserId());
-				search.add("toid", getUserId());
-				request.add(search);
+	private void addFoldersToList(EDFData data, JSONArray list, boolean subscribedOnly, boolean unreadOnly) throws JSONException {
+		List<EDFData> children = data.getChildren("folder");
+		for(EDFData child : children) {
+			int subtype = getChildInt(child, "subtype");
+			int count = getChildInt(child, "nummsgs");
+			int unread = getChildInt(child, "unread");
+			if((!subscribedOnly || subtype > 0) && (!unreadOnly || unread > 0)) {
+				JSONObject folder = new JSONObject();
+				copyChild(child, "name", folder, "folder");
+				folder.put("count", count);
+				folder.put("unread", unread);
+				folder.put("subscribed", subtype > 0);
+				list.put(folder);
 			}
 
-			EDFData reply = sendAndRead(request);
-			
-			name = getChildStr(reply, "foldername");
-
-			response = addMessagesToList(reply, name, unreadOnly, full);
-		} catch(Exception e) {
-			handleException("Cannot get messages in folder " + name, e);
+			addFoldersToList(child, list, subscribedOnly, unreadOnly);
 		}
-
-		return response;
-	}
-
-	public EDFActionWrapper<JSONObject> subscribeFolder(String folder, boolean subscribe) throws ProviderException, ActionException {
-		JSONObject response = null;
-		EDFData request = null;
-		EDFData reply = null;
-
-		try {
-			request = new EDFData("request", subscribe ? "folder_subscribe" : "folder_unsubscribe");
-
-			int id = getFolderId(folder);
-			if(id == -1) {
-				throw new ObjectNotFoundException("Folder " + folder + " does not exist");
-			}
-			request.add("folderid", id);
-			
-			reply = sendAndRead(request);
-			
-			response = new JSONObject();
-			
-			copyChild(reply, "foldername", response, "folder");
-
-		} catch(Exception e) {
-			handleException("Cannot add message to " + folder, e);
-		}
-		
-		return new EDFActionWrapper<JSONObject>(response, request, reply);
-	}
-
-	public EDFActionWrapper<JSONObject> getMessage(int id) throws ProviderException, ActionException {
-		JSONObject response = null;
-		EDFData request = null;
-		EDFData reply = null;
-
-		try {
-			request = new EDFData("request", "message_list");
-
-			request.add("messageid", id);
-			request.add("markread", 0);
-
-			reply = sendAndRead(request);
-
-			EDFData message = reply.getChild("message");
-			if(message != null) {
-				response = createMessage(message);
-				copyChild(reply, "foldername", response, "folder");
-			} else {
-				handleException("No message in reply:\n" + reply.format(true), new ObjectNotFoundException("Cannot get message " + id));
-			}
-		} catch(Exception e) {
-			handleException("Cannot get message " + id, e);
-		}
-
-		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 	
-	public JSONObject addMessage(String folder, JSONObject message) throws ProviderException, ActionException {
-		JSONObject response = null;
-		
-		try {
-			EDFData request = new EDFData("request", "message_add");
-
-			int id = getFolderId(folder);
-			if(id == -1) {
-				throw new ObjectNotFoundException("Folder " + folder + " does not exist");
-			}
-			request.add("folderid", id);
-			
-			try {
-				String to = message.getString("to");
-				int toId = getUserId(to);
-				if(toId != -1) {
-					request.add("toid", toId);
-				} else if(to != null) {
-					request.add("toname", to);
-				}
-			} catch(JSONException e) {
-			}
-
-			copyChild(message, "subject", request);
-			copyChild(message, "body", request, "text");
-
-			EDFData reply = sendAndRead(request);
-			
-			response = createMessage(reply);
-		} catch(Exception e) {
-			handleException("Cannot add message to " + folder, e);
-		}
-		
-		return response;
+	protected int getUserId() throws ProviderException {
+		return provider.getSession().getUserId();
 	}
 
-	public JSONObject replyToMessage(int id, JSONObject message) throws ProviderException, ActionException {
-		JSONObject response = null;
-		
-		try {
-			EDFData request = new EDFData("request", "message_add");
-
-			EDFActionWrapper<JSONObject> parent = getMessage(id);
-			if(parent == null) {
-				throw new ObjectNotFoundException("Message " + id + " does not exist");
-			}
-			request.add("replyid", id);
-			
-			try {
-				String to = message.getString("to");
-				int toId = getUserId(to);
-				if(toId != -1) {
-					request.add("toid", toId);
-				} else if(to != null) {
-					request.add("toname", to);
-				}
-			} catch(JSONException e) {
-			}
-
-			if(!copyChild(message, "subject", request)) {
-				copyChild(parent.getJSON(), "subject", request);
-			}
-			copyChild(message, "body", request, "text");
-
-			EDFData reply = sendAndRead(request);
-
-			response = createMessage(reply);
-		} catch(Exception e) {
-			handleException("Cannot reply to message " + id, e);
-		}
-		
-		return response;
-	}
-
-	public EDFActionWrapper<JSONObject> readMessages(JSONArray array, boolean type, boolean catchup, boolean stayCaughtUp) throws ProviderException, ActionException {
+	protected EDFActionWrapper<JSONObject> readMessages(JSONArray array, boolean type, boolean catchup, boolean stayCaughtUp) throws ProviderException, ActionException {
 		JSONObject response = new JSONObject();
 		EDFData request = null;
 		EDFData reply = null;
@@ -650,7 +516,7 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 
-	public EDFActionWrapper<JSONObject> saveMessages(JSONArray array, boolean type) throws ProviderException, ActionException {
+	protected EDFActionWrapper<JSONObject> saveMessages(JSONArray array, boolean type) throws ProviderException, ActionException {
 		JSONObject response = new JSONObject();
 		EDFData request = null;
 		EDFData reply = null;
@@ -679,99 +545,30 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 
-	public JSONObject markFolders(JSONArray array, boolean mark) throws ProviderException, ActionException {
-		JSONObject response = new JSONObject();
-		
-		try {
-			int count = 0;
-			for(int folderNum = 0; folderNum < array.length(); folderNum++) {
-				String name = array.getString(folderNum);
-				
-				EDFData request = new EDFData("request", mark ? "message_mark_read" : "message_mark_unread");
-				
-				request.add("folderid", getFolderId(name));
-				
-				EDFData reply = sendAndRead(request);
-				
-				int numMarked = getChildInt(reply, "nummarked");
-				
-				count += numMarked;
-			}
-		
-			response.put("count", count);
-		} catch(Exception e) {
-			handleException("Cannot mark folders " + array, e);
-		}
-
-		return response;
-	}
-
-	public JSONObject getSystem() throws ProviderException, ActionException {
+	protected EDFActionWrapper<JSONObject> subscribeFolder(String folder, boolean subscribe) throws ProviderException, ActionException {
 		JSONObject response = null;
-		
+		EDFData request = null;
+		EDFData reply = null;
+
 		try {
-			EDFData request = new EDFData("request", "system_list");
+			request = new EDFData("request", subscribe ? "folder_subscribe" : "folder_unsubscribe");
 
-			EDFData reply = sendAndRead(request);
-
+			int id = getFolderId(folder);
+			if(id == -1) {
+				throw new ObjectNotFoundException("Folder " + folder + " does not exist");
+			}
+			request.add("folderid", id);
+			
+			reply = sendAndRead(request);
+			
 			response = new JSONObject();
 			
-			response.put("banner", reply.getChild("banner").getString());
+			copyChild(reply, "foldername", response, "folder");
+
 		} catch(Exception e) {
-			handleException("Cannot get system", e);
+			handleException("Cannot add message to " + folder, e);
 		}
 		
-		return response;
-	}
-
-	public JSONObject getUser() throws ProviderException, ActionException {
-		JSONObject response = null;
-		
-		try {
-			EDFData request = new EDFData("request", "user_list");
-			
-			request.add("searchtype", 4);
-
-			EDFData reply = sendAndRead(request);
-
-			EDFData child = reply.getChild("user");
-
-			response = new JSONObject();
-		
-			copyChild(child, "name", response);
-		} catch(Exception e) {
-			handleException("Cannot get user", e);
-		}
-		
-		return response;
-	}
-
-	public JSONArray getUsers(boolean onlineOnly) throws ProviderException, ActionException {
-		JSONArray response = null;
-		
-		try {
-			EDFData request = new EDFData("request", "user_list");
-			if(onlineOnly) {
-				request.add("searchtype", 1);
-			}
-
-			EDFData reply = sendAndRead(request);
-
-			response = new JSONArray();
-			List<EDFData> children = reply.getChildren("user");
-			for(EDFData child : children) {
-				JSONObject user = new JSONObject();
-				copyChild(child, "name", user);
-				EDFData login = child.getChild("login");
-				if(login != null) {
-					copyChild(login, "timeon", user);
-				}
-				response.put(user);
-			}
-		} catch(Exception e) {
-			handleException("Cannot get users", e);
-		}
-		
-		return response;
+		return new EDFActionWrapper<JSONObject>(response, request, reply);
 	}
 }
