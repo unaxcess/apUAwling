@@ -11,7 +11,7 @@ import org.ua2.json.JSONWrapper;
 public class MarkMessageAction extends EDFAction<JSONObject> {
 
 	public MarkMessageAction(EDFProvider provider) {
-		super(provider, Method.POST, "message/(read(/sticky)?|unread|save|unsave)");
+		super(provider, Method.POST, "message/(read|unread|save|unsave)");
 	}
 
 	@Override
