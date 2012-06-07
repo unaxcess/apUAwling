@@ -252,6 +252,7 @@ public abstract class EDFAction<T> extends Action<EDFActionWrapper<T>> {
 		copyChild(src, "threadid", dest, "thread");
 
 		dest.put("read", isChildBool(src, "read"));
+		dest.put("saved", isChildBool(src, "saved"));
 		copyChild(src, "replyto", dest, "inReplyTo");
 		
 		copyChildren(src, dest, new ICopyProcessor() {
